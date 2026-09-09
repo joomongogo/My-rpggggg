@@ -17,13 +17,26 @@ let monster = {
   y: 150,
   size: 25,
   speed: 1.5,
-  hp: 100
+  hp: 100,
+  alive: true
 };
 
 const keys = {};
 
+let attack = {
+  active: false,
+  timer: 0,
+  range: 60,
+  damage: 20
+};
+
 document.addEventListener("keydown", e => {
   keys[e.key] = true;
+
+  if (e.code === "Space" && !attack.active) {
+    attack.active = true;
+    attack.timer = 10;
+  }
 });
 
 document.addEventListener("keyup", e => {
@@ -31,7 +44,6 @@ document.addEventListener("keyup", e => {
 });
 
 function update() {
-  // 플레이어 이동
   if (keys["w"] || keys["ArrowUp"])
     player.y -= player.speed;
 
@@ -44,35 +56,61 @@ function update() {
   if (keys["d"] || keys["ArrowRight"])
     player.x += player.speed;
 
-  // 맵 밖으로 나가지 않기
-  player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
-  player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
+  player.x = Math.max(
+    player.size,
+    Math.min(canvas.width - player.size, player.x)
+  );
 
-  // 몬스터가 플레이어를 따라옴
-  const dx = player.x - monster.x;
-  const dy = player.y - monster.y;
-  const distance = Math.hypot(dx, dy);
+  player.y = Math.max(
+    player.size,
+    Math.min(canvas.height - player.size, player.y)
+  );
 
-  if (distance > 1) {
-    monster.x += dx / distance * monster.speed;
-    monster.y += dy / distance * monster.speed;
+  if (monster.alive) {
+    const dx = player.x - monster.x;
+    const dy = player.y - monster.y;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > 1) {
+      monster.x += dx / distance * monster.speed;
+      monster.y += dy / distance * monster.speed;
+    }
+
+    if (distance < player.size + monster.size) {
+      player.hp -= 0.2;
+
+      if (player.hp < 0)
+        player.hp = 0;
+    }
   }
 
-  // 몬스터와 충돌
-  if (distance < player.size + monster.size) {
-    player.hp -= 0.2;
+  if (attack.active) {
+    attack.timer--;
 
-    if (player.hp < 0)
-      player.hp = 0;
+    if (monster.alive) {
+      const dx = player.x - monster.x;
+      const dy = player.y - monster.y;
+      const distance = Math.hypot(dx, dy);
+
+      if (distance < attack.range + monster.size) {
+        monster.hp -= attack.damage;
+
+        if (monster.hp <= 0) {
+          monster.hp = 0;
+          monster.alive = false;
+        }
+      }
+    }
+
+    if (attack.timer <= 0)
+      attack.active = false;
   }
 }
 
 function drawMap() {
-  // 배경
   ctx.fillStyle = "#172417";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // 바닥 타일
   const tileSize = 50;
 
   for (let x = 0; x < canvas.width; x += tileSize) {
@@ -82,7 +120,6 @@ function drawMap() {
     }
   }
 
-  // 장애물
   ctx.fillStyle = "#555";
 
   ctx.fillRect(100, 100, 150, 40);
@@ -106,6 +143,9 @@ function drawPlayer() {
 }
 
 function drawMonster() {
+  if (!monster.alive)
+    return;
+
   ctx.fillStyle = "#e63946";
 
   ctx.beginPath();
@@ -119,7 +159,6 @@ function drawMonster() {
 
   ctx.fill();
 
-  // 몬스터 체력바
   ctx.fillStyle = "#222";
   ctx.fillRect(
     monster.x - 25,
@@ -137,19 +176,45 @@ function drawMonster() {
   );
 }
 
+function drawAttack() {
+  if (!attack.active)
+    return;
+
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 6;
+
+  ctx.beginPath();
+  ctx.arc(
+    player.x,
+    player.y,
+    attack.range,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.stroke();
+
+  ctx.lineWidth = 1;
+}
+
 function drawUI() {
-  // 플레이어 체력바
   ctx.fillStyle = "#222";
   ctx.fillRect(20, 20, 200, 20);
 
   ctx.fillStyle = "#e63946";
-  ctx.fillRect(20, 20, 200 * (player.hp / 100), 20);
+  ctx.fillRect(
+    20,
+    20,
+    200 * (player.hp / 100),
+    20
+  );
 
   ctx.strokeStyle = "white";
   ctx.strokeRect(20, 20, 200, 20);
 
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
+
   ctx.fillText(
     "HP: " + Math.floor(player.hp),
     25,
@@ -161,11 +226,27 @@ function drawUI() {
     20,
     65
   );
+
+  ctx.fillText(
+    "Space: 공격",
+    20,
+    85
+  );
+
+  if (!monster.alive) {
+    ctx.font = "30px Arial";
+    ctx.fillText(
+      "MONSTER DEFEATED!",
+      canvas.width / 2 - 150,
+      100
+    );
+  }
 }
 
 function draw() {
   drawMap();
   drawMonster();
+  drawAttack();
   drawPlayer();
   drawUI();
 }
