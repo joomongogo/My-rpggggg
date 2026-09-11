@@ -9,7 +9,7 @@ canvas.height = window.innerHeight;
    기본 설정
 ========================= */
 
-const MONSTER_RESPAWN_TIME = 10000;
+const MONSTER_RESPAWN_TIME = 4000;
 
 let player = {
   x: canvas.width / 2,
