@@ -5,11 +5,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-/* =========================
-   기본 설정
-========================= */
-
-const MONSTER_RESPAWN_TIME = 4000;
+const MONSTER_RESPAWN_TIME = 4000; // test
 
 let player = {
   x: canvas.width / 2,
