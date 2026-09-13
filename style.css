@@ -2,6 +2,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -11,10 +12,216 @@ body {
   overflow: hidden;
   background-color: #172417;
   font-family: Arial, sans-serif;
+  color: #fff;
+  touch-action: none;
+  user-select: none;
 }
 
 #game {
   display: block;
   width: 100vw;
   height: 100vh;
+}
+
+#hud {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+#hud-panel {
+  width: 260px;
+  padding: 12px 14px 10px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+#hud-level {
+  font-weight: bold;
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.bar {
+  position: relative;
+  height: 18px;
+  margin-bottom: 8px;
+  background: #222;
+  border: 1px solid #fff;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 100%;
+}
+
+.hp-bar .bar-fill {
+  background: #e63946;
+}
+
+.exp-bar .bar-fill {
+  background: #f4c542;
+}
+
+.bar span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+#hud-hint,
+#hud-bag {
+  font-size: 13px;
+  color: #ddd;
+}
+
+#hud-bag {
+  margin-top: 4px;
+}
+
+#touch-ui {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+#touch-ui.visible {
+  display: block;
+}
+
+#joystick-pad {
+  pointer-events: auto;
+  position: absolute;
+  left: 24px;
+  bottom: 110px;
+  width: 150px;
+  height: 150px;
+}
+
+#joystick-base {
+  width: 120px;
+  height: 120px;
+  margin: 15px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  position: relative;
+}
+
+#joystick-knob {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  position: absolute;
+  left: 36px;
+  top: 36px;
+  transform: translate(0, 0);
+}
+
+#slot-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+}
+
+.slot-button {
+  position: relative;
+  width: 72px;
+  height: 64px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.slot-button.empty {
+  opacity: 0.7;
+}
+
+.slot-cool {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  width: 0;
+  background: #f4c542;
+}
+
+.slot-name,
+.slot-meta {
+  position: relative;
+  display: block;
+  line-height: 1.2;
+}
+
+.slot-name {
+  font-size: 13px;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+.slot-meta {
+  font-size: 11px;
+  color: #ddd;
+}
+
+#game-over {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  background: rgba(0, 0, 0, 0.65);
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+#game-over.visible {
+  display: flex;
+}
+
+.game-over-title {
+  color: #e63946;
+  font-size: 48px;
+  font-weight: bold;
+}
+
+.game-over-hint {
+  margin-top: 12px;
+  font-size: 18px;
+}
+
+@media (max-width: 720px) {
+  #hud-panel {
+    width: 200px;
+    padding: 8px 10px;
+  }
+
+  #hud-level {
+    font-size: 14px;
+  }
+
+  .slot-button {
+    width: 58px;
+    height: 56px;
+  }
+
+  #joystick-pad {
+    bottom: 88px;
+  }
 }

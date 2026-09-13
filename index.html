@@ -1,26 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>My RPG</title>
-
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #111;
-    }
-
-    canvas {
-      display: block;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
   <canvas id="game"></canvas>
 
-  <script src="game.js"></script>
+  <div id="hud">
+    <div id="hud-panel">
+      <div id="hud-level">LEVEL 1</div>
+      <div class="bar hp-bar">
+        <div id="hp-fill" class="bar-fill"></div>
+        <span id="hp-text">HP 100 / 100</span>
+      </div>
+      <div class="bar exp-bar">
+        <div id="exp-fill" class="bar-fill"></div>
+        <span id="exp-text">EXP 0 / 100</span>
+      </div>
+      <div id="hud-hint">이동: WASD / 방향키</div>
+      <div id="hud-bag">가방 0</div>
+    </div>
+  </div>
+
+  <div id="touch-ui">
+    <div id="joystick-pad">
+      <div id="joystick-base">
+        <div id="joystick-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="slot-bar">
+    <button class="slot-button" data-slot="0" type="button">
+      <span class="slot-cool"></span>
+      <span class="slot-name">빈 칸</span>
+      <span class="slot-meta"></span>
+    </button>
+    <button class="slot-button" data-slot="1" type="button">
+      <span class="slot-cool"></span>
+      <span class="slot-name">빈 칸</span>
+      <span class="slot-meta"></span>
+    </button>
+    <button class="slot-button" data-slot="2" type="button">
+      <span class="slot-cool"></span>
+      <span class="slot-name">빈 칸</span>
+      <span class="slot-meta"></span>
+    </button>
+    <button class="slot-button" data-slot="3" type="button">
+      <span class="slot-cool"></span>
+      <span class="slot-name">빈 칸</span>
+      <span class="slot-meta"></span>
+    </button>
+    <button class="slot-button" data-slot="4" type="button">
+      <span class="slot-cool"></span>
+      <span class="slot-name">빈 칸</span>
+      <span class="slot-meta"></span>
+    </button>
+  </div>
+
+  <div id="game-over">
+    <div class="game-over-title">GAME OVER</div>
+    <div class="game-over-hint">새로고침해서 다시 시작</div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

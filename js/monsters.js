@@ -1,0 +1,146 @@
+import { getRarityIndex, getRarityMult } from "./rarity.js";
+import { damagePlayer } from "./player.js";
+import { onSlimeDefeat } from "./slime.js";
+import { tryStartUndead, updateZombie } from "./zombie.js";
+import { isWitchCasting, updateWitch } from "./witch.js";
+
+const TYPE_BASE = {
+  slime: { hp: 40, contact: 8, speed: 1.6, size: 22, exp: 12 },
+  zombie: { hp: 80, contact: 12, speed: 1.2, size: 26, exp: 20 },
+  witch: { hp: 55, contact: 5, speed: 1.3, size: 24, exp: 28 }
+};
+
+let nextId = 1;
+
+export const monsters = [];
+
+export function createMonster(type, x, y, rarity) {
+  const base = TYPE_BASE[type];
+  const mult = getRarityMult(rarity);
+  const index = getRarityIndex(rarity);
+
+  return {
+    id: nextId++,
+    type,
+    rarity,
+    x,
+    y,
+    size: base.size * (1 + index * 0.06),
+    baseSpeed: base.speed * (1 + index * 0.03),
+    speed: base.speed * (1 + index * 0.03),
+    hp: base.hp * mult,
+    maxHp: base.hp * mult,
+    expReward: Math.round(base.exp * mult),
+    contactDamage: base.contact * (0.45 + mult * 0.12),
+    alive: true,
+    finished: false,
+    undead: false,
+    undeadTimer: 0,
+    slowTimer: 0,
+    slowAmount: 0,
+    castTimer: 1 + Math.random() * 2,
+    aoe: null
+  };
+}
+
+export function canBeHit(monster) {
+  return monster && monster.alive && !monster.undead && !monster.finished;
+}
+
+export function applySlow(monster, amount, duration) {
+  monster.slowAmount = Math.max(monster.slowAmount, amount);
+  monster.slowTimer = Math.max(monster.slowTimer, duration);
+}
+
+export function applyMonsterHit(monster, damage, player, onResolved) {
+  if (!canBeHit(monster)) {
+    return 0;
+  }
+
+  monster.hp -= damage;
+  if (monster.hp > 0) {
+    return damage;
+  }
+
+  monster.hp = 0;
+
+  if (monster.type === "zombie" && tryStartUndead(monster)) {
+    return damage;
+  }
+
+  resolveDefeat(monster, player, onResolved);
+  return damage;
+}
+
+function resolveDefeat(monster, player, onResolved) {
+  monster.alive = false;
+  monster.finished = true;
+  monster.aoe = null;
+
+  let result = { exp: monster.expReward, drop: null };
+  if (monster.type === "slime") {
+    result = onSlimeDefeat(monster);
+  } else if (monster.type === "witch") {
+    result = { exp: monster.expReward, drop: "potion" };
+  } else if (monster.type === "zombie") {
+    result = { exp: monster.expReward, drop: "fang" };
+  }
+
+  onResolved(monster, result);
+}
+
+export function updateMonsters(player, dt, onResolved) {
+  for (const monster of monsters) {
+    if (monster.finished && !monster.undead) {
+      continue;
+    }
+
+    if (monster.slowTimer > 0) {
+      monster.slowTimer -= dt;
+      if (monster.slowTimer <= 0) {
+        monster.slowAmount = 0;
+      }
+    }
+
+    const zombieResult = monster.type === "zombie" ? updateZombie(monster, dt) : null;
+    if (zombieResult) {
+      onResolved(monster, zombieResult);
+      continue;
+    }
+
+    if (player.hp <= 0) {
+      continue;
+    }
+
+    if (monster.type === "witch") {
+      updateWitch(monster, player, dt);
+    }
+
+    const casting = monster.type === "witch" && isWitchCasting(monster);
+    const moving = (monster.alive || monster.undead) && !casting;
+
+    if (moving) {
+      const dx = player.x - monster.x;
+      const dy = player.y - monster.y;
+      const distance = Math.hypot(dx, dy);
+      const speed = monster.baseSpeed * (1 - monster.slowAmount) * 60 * dt;
+
+      if (distance > 1) {
+        monster.x += (dx / distance) * speed;
+        monster.y += (dy / distance) * speed;
+      }
+
+      if (distance < player.size + monster.size) {
+        damagePlayer(player, monster.contactDamage * dt);
+      }
+    }
+  }
+}
+
+export function removeFinishedMonsters() {
+  for (let i = monsters.length - 1; i >= 0; i--) {
+    if (monsters[i].finished && !monsters[i].undead) {
+      monsters.splice(i, 1);
+    }
+  }
+}
