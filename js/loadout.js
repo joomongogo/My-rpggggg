@@ -38,28 +38,78 @@ export function giveStarterLoadout(player) {
   player.loadout[0].cooldown = 0;
 }
 
+export function takeInventoryItem(type, rarity) {
+  const index = inventory.findIndex((item) => item.type === type && item.rarity === rarity);
+  if (index < 0) {
+    return null;
+  }
+  return inventory.splice(index, 1)[0];
+}
+
+export function swapSlots(player, a, b) {
+  if (a === b || !player.loadout[a] || !player.loadout[b]) {
+    return;
+  }
+  const left = player.loadout[a];
+  const right = player.loadout[b];
+  const item = left.item;
+  const cooldown = left.cooldown;
+  left.item = right.item;
+  left.cooldown = right.cooldown;
+  right.item = item;
+  right.cooldown = cooldown;
+}
+
+export function unequipSlot(player, slotIndex) {
+  const slot = player.loadout[slotIndex];
+  if (!slot || !slot.item) {
+    return false;
+  }
+  inventory.push(slot.item);
+  slot.item = null;
+  slot.cooldown = 0;
+  console.log("[loadout] unequipped slot", slotIndex);
+  return true;
+}
+
+export function equipToSlot(player, slotIndex, type, rarity) {
+  const slot = player.loadout[slotIndex];
+  const incoming = takeInventoryItem(type, rarity);
+  if (!slot || !incoming) {
+    return false;
+  }
+
+  if (slot.item) {
+    inventory.push(slot.item);
+  }
+  slot.item = incoming;
+  slot.cooldown = 0;
+  console.log("[loadout] equipped to slot", slotIndex, type, rarity);
+  return true;
+}
+
+export function equipFromInventory(player, type, rarity) {
+  const emptyIndex = player.loadout.findIndex((slot) => !slot.item);
+  if (emptyIndex >= 0) {
+    return equipToSlot(player, emptyIndex, type, rarity);
+  }
+  return false;
+}
+
 export function tapSlot(player, index) {
   const slot = player.loadout[index];
   if (!slot) {
     return;
   }
 
-  if (inventory.length > 0) {
-    const incoming = inventory.shift();
-    const outgoing = slot.item;
-    slot.item = incoming;
-    slot.cooldown = 0;
-    if (outgoing) {
-      inventory.unshift(outgoing);
-    }
-    console.log("[loadout] swapped slot", index);
+  if (slot.item) {
+    unequipSlot(player, index);
     return;
   }
 
-  if (slot.item) {
-    inventory.push(slot.item);
-    slot.item = null;
+  if (inventory.length > 0) {
+    const incoming = inventory.shift();
+    slot.item = incoming;
     slot.cooldown = 0;
-    console.log("[loadout] unequipped slot", index);
   }
 }

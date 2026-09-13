@@ -1,7 +1,7 @@
 import { worldToScreen, isOnScreen } from "./camera.js";
 import { effects } from "./combat.js";
 import { getSlotWorldPos } from "./loadout.js";
-import { getRarityColor } from "./rarity.js";
+import { createRarityPaint, getRarityColor } from "./rarity.js";
 
 function drawEyes(ctx, x, y, size, dirX, dirY, count = 2) {
   const dist = Math.hypot(dirX, dirY) || 1;
@@ -28,19 +28,33 @@ function drawEyes(ctx, x, y, size, dirX, dirY, count = 2) {
   drawEye(x + size * 0.22 + ox, y - size * 0.1 + oy, 1);
 }
 
-function strokeRarity(ctx, x, y, radius, rarity) {
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.strokeStyle = getRarityColor(rarity);
-  ctx.lineWidth = rarity === "X_" ? 5 : 3;
-  ctx.stroke();
-  if (rarity === "X_") {
+export function drawItemShape(ctx, x, y, size, item, time, ready = true) {
+  ctx.save();
+  ctx.fillStyle = ready
+    ? createRarityPaint(ctx, x, y, size, item.rarity, time)
+    : "#555";
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.lineWidth = 1.5;
+
+  if (item.type === "fang") {
     ctx.beginPath();
-    ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1.5;
+    ctx.moveTo(x, y - size);
+    ctx.lineTo(x + size * 0.85, y + size * 0.75);
+    ctx.lineTo(x - size * 0.85, y + size * 0.75);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (item.type === "potion") {
+    ctx.fillRect(x - size * 0.8, y - size * 0.8, size * 1.6, size * 1.6);
+    ctx.strokeRect(x - size * 0.8, y - size * 0.8, size * 1.6, size * 1.6);
+  } else {
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
     ctx.stroke();
   }
+
+  ctx.restore();
 }
 
 function drawSlime(ctx, screen, monster, time, player) {
@@ -49,10 +63,17 @@ function drawSlime(ctx, screen, monster, time, player) {
   ctx.ellipse(screen.x, screen.y, monster.size, monster.size * wobble, 0, 0, Math.PI * 2);
   ctx.fillStyle = "rgba(120, 210, 130, 0.88)";
   ctx.fill();
-  strokeRarity(ctx, screen.x, screen.y, monster.size, monster.rarity);
 
   ctx.beginPath();
-  ctx.ellipse(screen.x - monster.size * 0.2, screen.y - monster.size * 0.35, monster.size * 0.28, monster.size * 0.14, -0.4, 0, Math.PI * 2);
+  ctx.ellipse(
+    screen.x - monster.size * 0.2,
+    screen.y - monster.size * 0.35,
+    monster.size * 0.28,
+    monster.size * 0.14,
+    -0.4,
+    0,
+    Math.PI * 2
+  );
   ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
   ctx.fill();
   drawEyes(ctx, screen.x, screen.y, monster.size, player.x - monster.x, player.y - monster.y);
@@ -65,13 +86,12 @@ function drawZombie(ctx, screen, monster, player) {
   ctx.closePath();
   ctx.fillStyle = monster.undead ? "#6d8a4a" : "#5a6b3f";
   ctx.fill();
-  strokeRarity(ctx, screen.x, screen.y, monster.size, monster.rarity);
 
   ctx.strokeStyle = "#2d3318";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(screen.x - monster.size * 0.35, screen.y + monster.size * 0.05);
-  ctx.lineTo(screen.x - monster.size * 0.05, screen.y + monster.size * 0.18);
+  ctx.lineTo(screen.x + monster.size * 0.05, screen.y + monster.size * 0.18);
   ctx.moveTo(screen.x + monster.size * 0.1, screen.y + monster.size * 0.22);
   ctx.lineTo(screen.x + monster.size * 0.32, screen.y + monster.size * 0.08);
   ctx.stroke();
@@ -92,7 +112,6 @@ function drawWitch(ctx, screen, monster, player) {
   ctx.arc(screen.x, screen.y, monster.size, 0, Math.PI * 2);
   ctx.fillStyle = "#7b4fc4";
   ctx.fill();
-  strokeRarity(ctx, screen.x, screen.y, monster.size, monster.rarity);
 
   ctx.beginPath();
   ctx.moveTo(screen.x - monster.size * 0.7, screen.y - monster.size * 0.35);
@@ -122,6 +141,20 @@ function drawMonsterHp(ctx, screen, monster) {
   ctx.strokeRect(x, y, width, 5);
 }
 
+function drawRarityLabel(ctx, screen, monster, time) {
+  const y = screen.y + monster.size + 14;
+  ctx.font = "bold 12px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+  ctx.strokeText(monster.rarity, screen.x, y);
+  ctx.fillStyle = getRarityColor(monster.rarity, time);
+  ctx.fillText(monster.rarity, screen.x, y);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+}
+
 export function drawMonsters(ctx, canvas, monsterList, player, time) {
   for (const monster of monsterList) {
     if (monster.finished && !monster.undead) {
@@ -142,6 +175,7 @@ export function drawMonsters(ctx, canvas, monsterList, player, time) {
 
     if (monster.alive || monster.undead) {
       drawMonsterHp(ctx, screen, monster);
+      drawRarityLabel(ctx, screen, monster, time);
     }
 
     if (monster.aoe) {
@@ -173,7 +207,7 @@ export function drawPlayer(ctx, player) {
   }
 }
 
-export function drawLoadout(ctx, player) {
+export function drawLoadout(ctx, player, time) {
   player.loadout.forEach((slot, index) => {
     if (!slot.item) {
       return;
@@ -181,34 +215,26 @@ export function drawLoadout(ctx, player) {
     const pos = getSlotWorldPos(player, index);
     const screen = worldToScreen(pos.x, pos.y);
     const ready = slot.cooldown <= 0;
-    ctx.beginPath();
-    ctx.arc(screen.x, screen.y, 8, 0, Math.PI * 2);
-    ctx.fillStyle = ready ? slot.item.color : "#555";
-    ctx.fill();
-    strokeRarity(ctx, screen.x, screen.y, 8, slot.item.rarity);
+    drawItemShape(ctx, screen.x, screen.y, 8, slot.item, time, ready);
 
     if (!ready) {
       const ratio = 1 - slot.cooldown / slot.item.reload;
       ctx.beginPath();
       ctx.strokeStyle = "rgba(255,255,255,0.85)";
       ctx.lineWidth = 2;
-      ctx.arc(screen.x, screen.y, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
+      ctx.arc(screen.x, screen.y, 12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
       ctx.stroke();
     }
   });
 }
 
-export function drawDrops(ctx, canvas, dropList) {
+export function drawDrops(ctx, canvas, dropList, time) {
   for (const drop of dropList) {
     if (!isOnScreen(drop.x, drop.y, 20, canvas)) {
       continue;
     }
     const screen = worldToScreen(drop.x, drop.y);
-    ctx.beginPath();
-    ctx.arc(screen.x, screen.y, 9, 0, Math.PI * 2);
-    ctx.fillStyle = drop.item.color;
-    ctx.fill();
-    strokeRarity(ctx, screen.x, screen.y, 9, drop.rarity);
+    drawItemShape(ctx, screen.x, screen.y, 9, drop.item, time);
   }
 }
 

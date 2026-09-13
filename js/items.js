@@ -4,14 +4,14 @@ import { getRarityIndex, getRarityMult } from "./rarity.js";
 const BASE = {
   fang: {
     type: "fang",
-    label: "이빨",
+    label: "Fang",
     color: "#f3d6d0",
     damage: 18,
     lifesteal: 0.08
   },
   mucus: {
     type: "mucus",
-    label: "점액",
+    label: "Mucus",
     color: "#9be38a",
     damage: 10,
     slow: 0.25,
@@ -19,7 +19,7 @@ const BASE = {
   },
   potion: {
     type: "potion",
-    label: "물약",
+    label: "Potion",
     color: "#b388ff",
     damage: 16,
     aoeRadius: 70

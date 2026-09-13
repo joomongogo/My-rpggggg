@@ -23,6 +23,49 @@ body {
   height: 100vh;
 }
 
+#boss-bar {
+  display: none;
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: min(520px, calc(100vw - 40px));
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 2px solid #ffd400;
+  pointer-events: none;
+}
+
+#boss-bar.visible {
+  display: block;
+}
+
+#boss-name {
+  font-weight: bold;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.boss-hp .bar-fill {
+  background: #ffd400;
+}
+
+#boss-bar.rarity-x {
+  border-color: #ff4d6d;
+}
+
+#drag-ghost {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid #fff;
+  font-size: 12px;
+  display: none;
+}
+
 #hud {
   position: fixed;
   top: 16px;
@@ -101,7 +144,7 @@ body {
   pointer-events: auto;
   position: absolute;
   left: 24px;
-  bottom: 110px;
+  bottom: 96px;
   width: 150px;
   height: 150px;
 }
@@ -137,6 +180,86 @@ body {
   gap: 8px;
 }
 
+#bag-button {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 6;
+  min-width: 88px;
+  height: 48px;
+  padding: 0 12px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: none;
+}
+
+#bag-button.open {
+  border-color: #f4c542;
+}
+
+#inventory-panel {
+  display: none;
+  position: fixed;
+  left: 16px;
+  bottom: 76px;
+  z-index: 6;
+  width: 280px;
+  max-height: 46vh;
+  overflow: auto;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+#inventory-panel.visible {
+  display: block;
+}
+
+#inventory-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+#inventory-help {
+  font-size: 12px;
+  color: #ccc;
+  margin-bottom: 10px;
+}
+
+.inventory-empty {
+  font-size: 13px;
+  color: #bbb;
+}
+
+.inventory-tile {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.inventory-item,
+.fuse-button {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  cursor: pointer;
+  padding: 8px;
+  font-size: 12px;
+}
+
+.inventory-item {
+  flex: 1;
+  text-align: left;
+}
+
+.fuse-button {
+  white-space: nowrap;
+  background: rgba(244, 197, 66, 0.2);
+}
+
 .slot-button {
   position: relative;
   width: 72px;
@@ -147,6 +270,40 @@ body {
   color: #fff;
   cursor: pointer;
   touch-action: none;
+}
+
+.rarity-basic { border-color: #9aa0a6; }
+.rarity-decent { border-color: #3d7dff; }
+.rarity-nice { border-color: #ff9f2e; }
+.rarity-great { border-color: #3fc85a; }
+.rarity-super { border-color: #67dcff; }
+.rarity-hyper { border-color: #fdf6d8; }
+.rarity-amber { border-color: #ff4a3d; }
+
+.rarity-eternal {
+  border-color: #ffd400;
+  background-image: linear-gradient(135deg, #ffffff, #ffd400);
+  color: #222;
+}
+
+.rarity-x {
+  border-color: #ff4d6d;
+  background-image: linear-gradient(
+    90deg,
+    #ff4d6d,
+    #ffd400,
+    #3fc85a,
+    #3d7dff,
+    #b388ff,
+    #ff4d6d
+  );
+  background-size: 240% 100%;
+  animation: rainbow-shift 2.2s linear infinite;
+}
+
+@keyframes rainbow-shift {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
 }
 
 .slot-button.empty {
@@ -222,6 +379,10 @@ body {
   }
 
   #joystick-pad {
-    bottom: 88px;
+    bottom: 96px;
+  }
+
+  #inventory-panel {
+    width: calc(100vw - 32px);
   }
 }

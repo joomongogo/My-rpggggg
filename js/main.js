@@ -1,7 +1,7 @@
 import { bindInput, getMoveVector } from "./input.js";
 import { updateCamera } from "./camera.js";
 import { drawWorld } from "./world.js";
-import { createPlayer, updatePlayer, addExperience } from "./player.js";
+import { createPlayer, updatePlayer, addExperience, maybeRespawn } from "./player.js";
 import { monsters, updateMonsters, removeFinishedMonsters } from "./monsters.js";
 import { populateWorld, queueRespawn, spawnSplitSlimes, updateRespawns } from "./spawn.js";
 import { drops, spawnDrop, updateDrops } from "./drops.js";
@@ -51,6 +51,7 @@ function loop(now) {
   lastTime = now;
 
   updatePlayer(player, getMoveVector(), dt);
+  maybeRespawn(player);
   updateCamera(player, canvas);
   updateMonsters(player, dt, onMonsterResolved);
   tickCombat(player, monsters, dt, onMonsterResolved);
@@ -59,11 +60,12 @@ function loop(now) {
   removeFinishedMonsters();
 
   drawWorld(ctx, canvas);
-  drawDrops(ctx, canvas, drops);
-  drawMonsters(ctx, canvas, monsters, player, now / 1000);
+  const time = now / 1000;
+  drawDrops(ctx, canvas, drops, time);
+  drawMonsters(ctx, canvas, monsters, player, time);
   drawEffects(ctx, canvas);
   drawPlayer(ctx, player);
-  drawLoadout(ctx, player);
+  drawLoadout(ctx, player, time);
   syncUi(player);
 
   requestAnimationFrame(loop);

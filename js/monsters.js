@@ -1,3 +1,4 @@
+import { ACTIVE_RADIUS } from "./constants.js";
 import { getRarityIndex, getRarityMult } from "./rarity.js";
 import { damagePlayer } from "./player.js";
 import { onSlimeDefeat } from "./slime.js";
@@ -25,7 +26,7 @@ export function createMonster(type, x, y, rarity) {
     rarity,
     x,
     y,
-    size: base.size * (1 + index * 0.06),
+    size: base.size * (1 + index * 0.12),
     baseSpeed: base.speed * (1 + index * 0.03),
     speed: base.speed * (1 + index * 0.03),
     hp: base.hp * mult,
@@ -109,6 +110,14 @@ export function updateMonsters(player, dt, onResolved) {
     }
 
     if (player.hp <= 0) {
+      continue;
+    }
+
+    const distanceToPlayer = Math.hypot(player.x - monster.x, player.y - monster.y);
+    if (distanceToPlayer > ACTIVE_RADIUS) {
+      if (monster.type === "witch" && monster.aoe) {
+        updateWitch(monster, player, dt);
+      }
       continue;
     }
 

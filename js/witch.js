@@ -1,4 +1,10 @@
-import { WITCH_AOE_RADIUS, WITCH_CAST_COOLDOWN, WITCH_WINDUP } from "./constants.js";
+import {
+  WITCH_AOE_RADIUS,
+  WITCH_CAST_COOLDOWN,
+  WITCH_CAST_RANGE,
+  WITCH_SPELL_BASE,
+  WITCH_WINDUP
+} from "./constants.js";
 import { getRarityIndex, getRarityMult } from "./rarity.js";
 import { damagePlayer } from "./player.js";
 
@@ -7,7 +13,13 @@ export function updateWitch(monster, player, dt) {
     return;
   }
 
+  const distance = Math.hypot(player.x - monster.x, player.y - monster.y);
+
   if (!monster.aoe) {
+    if (distance > WITCH_CAST_RANGE) {
+      return;
+    }
+
     monster.castTimer -= dt;
     if (monster.castTimer <= 0) {
       const index = getRarityIndex(monster.rarity);
@@ -16,10 +28,10 @@ export function updateWitch(monster, player, dt) {
         y: player.y,
         radius: WITCH_AOE_RADIUS * (1 + index * 0.08),
         windup: WITCH_WINDUP,
-        damage: 14 * getRarityMult(monster.rarity)
+        damage: WITCH_SPELL_BASE * Math.sqrt(getRarityMult(monster.rarity))
       };
       monster.castTimer = WITCH_CAST_COOLDOWN;
-      console.log("[witch] cast");
+      console.log("[witch] cast", monster.rarity, monster.aoe.damage.toFixed(1));
     }
     return;
   }

@@ -4,6 +4,10 @@ import {
   PLAYER_DAMAGE,
   PLAYER_MAX_EXP,
   PLAYER_MAX_HP,
+  PLAYER_REGEN,
+  PLAYER_REGEN_DELAY,
+  PLAYER_RESPAWN_HP,
+  PLAYER_RESPAWN_TIME,
   PLAYER_SIZE,
   PLAYER_SPEED,
   SPAWN_X,
@@ -23,7 +27,9 @@ export function createPlayer() {
     maxExp: PLAYER_MAX_EXP,
     level: 1,
     damage: PLAYER_DAMAGE,
-    loadout: createLoadout()
+    loadout: createLoadout(),
+    hurtTimer: 0,
+    respawnTimer: 0
   };
 
   giveStarterLoadout(player);
@@ -32,7 +38,15 @@ export function createPlayer() {
 
 export function updatePlayer(player, move, dt) {
   if (player.hp <= 0) {
+    if (player.respawnTimer > 0) {
+      player.respawnTimer = Math.max(0, player.respawnTimer - dt);
+    }
     return;
+  }
+
+  player.hurtTimer = Math.max(0, player.hurtTimer - dt);
+  if (player.hurtTimer <= 0) {
+    healPlayer(player, PLAYER_REGEN * dt);
   }
 
   const frameSpeed = player.speed * 60 * dt;
@@ -71,8 +85,28 @@ export function healPlayer(player, amount) {
 }
 
 export function damagePlayer(player, amount) {
-  if (player.hp <= 0) {
+  if (player.hp <= 0 || amount <= 0) {
     return;
   }
   player.hp = Math.max(0, player.hp - amount);
+  player.hurtTimer = PLAYER_REGEN_DELAY;
+  if (player.hp <= 0) {
+    player.respawnTimer = PLAYER_RESPAWN_TIME;
+    console.log("[player] down");
+  }
+}
+
+export function respawnPlayer(player) {
+  player.x = SPAWN_X;
+  player.y = SPAWN_Y;
+  player.hp = Math.max(1, Math.floor(player.maxHp * PLAYER_RESPAWN_HP));
+  player.hurtTimer = PLAYER_REGEN_DELAY;
+  player.respawnTimer = 0;
+  console.log("[player] respawn");
+}
+
+export function maybeRespawn(player) {
+  if (player.hp <= 0 && player.respawnTimer <= 0) {
+    respawnPlayer(player);
+  }
 }

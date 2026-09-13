@@ -68,15 +68,23 @@ function fireMucus(item, player, target, onResolved) {
 }
 
 function firePotion(item, player, targets, onResolved) {
+  const center = closest(player, targets);
+  if (!center) {
+    return;
+  }
+
   addEffect({
     type: "potion",
-    x: player.x,
-    y: player.y,
+    x: center.x,
+    y: center.y,
     radius: item.aoeRadius
   });
 
   for (const target of targets) {
-    applyMonsterHit(target, item.damage, player, onResolved);
+    const dist = Math.hypot(center.x - target.x, center.y - target.y);
+    if (dist < item.aoeRadius + target.size) {
+      applyMonsterHit(target, item.damage, player, onResolved);
+    }
   }
 }
 
