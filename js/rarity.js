@@ -130,7 +130,7 @@ export function rollZoneRarity(distance) {
   if (roll < 0.2 && index > 0) {
     return RARITY_ORDER[index - 1];
   }
-  if (roll > 0.9 && index < RARITY_ORDER.length - 1) {
+  if (roll > 0.9 && index > 0 && index < RARITY_ORDER.length - 1) {
     return RARITY_ORDER[index + 1];
   }
   return base;

@@ -92,10 +92,13 @@ function pendingCount(zoneIndex) {
   return respawns.filter((job) => job.zoneIndex === zoneIndex).length;
 }
 
-export function findSpawnPoint(player, preferredDistance) {
+export function findSpawnPoint(player, preferredDistance, maxDistance = Infinity) {
   for (let i = 0; i < SPAWN_ATTEMPTS; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const jitter = preferredDistance + (Math.random() - 0.5) * 80;
+    const jitter = Math.min(
+      maxDistance,
+      Math.max(SAFE_SPAWN_RADIUS, preferredDistance + (Math.random() - 0.5) * 80)
+    );
     const point = {
       x: SPAWN_X + Math.cos(angle) * jitter,
       y: SPAWN_Y + Math.sin(angle) * jitter
@@ -123,14 +126,16 @@ export function spawnMonster(type, x, y, rarity, homeZone) {
 
 function spawnInZone(player, zoneIndex, type) {
   const [minDist, maxDist] = ZONE_RINGS[zoneIndex];
-  const distance = minDist + Math.random() * Math.max(1, maxDist - minDist);
-  const point = findSpawnPoint(player, distance);
+  const spawnMin = Math.max(minDist, SAFE_SPAWN_RADIUS);
+  const spawnMax = Math.max(spawnMin + 1, maxDist);
+  const distance = spawnMin + Math.random() * (spawnMax - spawnMin);
+  const point = findSpawnPoint(player, distance, spawnMax - 1);
   if (!point) {
     return null;
   }
   const rarity = rollZoneRarity(distanceFromSpawn(point.x, point.y));
   return spawnMonster(
-    type || TYPES[Math.floor(Math.random() * TYPES.length)],
+    type || randomTypeForZone(zoneIndex),
     point.x,
     point.y,
     rarity,
@@ -143,8 +148,9 @@ export function populateWorld(player) {
   respawns.length = 0;
 
   ZONE_RINGS.forEach((ring, zoneIndex) => {
-    for (let i = 0; i < MONSTERS_PER_ZONE; i++) {
-      spawnInZone(player, zoneIndex, TYPES[i % TYPES.length]);
+    const count = zoneCapacity(zoneIndex);
+    for (let i = 0; i < count; i++) {
+      spawnInZone(player, zoneIndex, pickTypeForZone(zoneIndex, i));
     }
   });
 
@@ -153,7 +159,7 @@ export function populateWorld(player) {
 
 export function queueRespawn(source) {
   const zoneIndex = source.homeZone ?? zoneIndexFromDistance(distanceFromSpawn(source.x, source.y));
-  if (zoneCount(zoneIndex) + pendingCount(zoneIndex) >= MONSTERS_PER_ZONE) {
+  if (zoneCount(zoneIndex) + pendingCount(zoneIndex) >= zoneCapacity(zoneIndex)) {
     return;
   }
   respawns.push({
@@ -180,7 +186,7 @@ export function updateRespawns(player, dt) {
     }
 
     const job = respawns.splice(i, 1)[0];
-    if (zoneCount(job.zoneIndex) >= MONSTERS_PER_ZONE) {
+    if (zoneCount(job.zoneIndex) >= zoneCapacity(job.zoneIndex)) {
       continue;
     }
     spawnInZone(player, job.zoneIndex, job.type);
@@ -188,10 +194,10 @@ export function updateRespawns(player, dt) {
   }
 
   ZONE_RINGS.forEach((ring, zoneIndex) => {
-    const missing = MONSTERS_PER_ZONE - zoneCount(zoneIndex) - pendingCount(zoneIndex);
+    const missing = zoneCapacity(zoneIndex) - zoneCount(zoneIndex) - pendingCount(zoneIndex);
     for (let i = 0; i < missing; i++) {
       respawns.push({
-        type: TYPES[Math.floor(Math.random() * TYPES.length)],
+        type: randomTypeForZone(zoneIndex),
         zoneIndex,
         timer: RESPAWN_TIME
       });
