@@ -9,6 +9,7 @@ export const RESPAWN_TIME = 5;
 export const PICKUP_RANGE = 40;
 export const MIN_RESPAWN_DISTANCE = 250;
 export const SPAWN_ATTEMPTS = 50;
+export const SAFE_SPAWN_RADIUS = 480;
 
 export const PLAYER_SIZE = 20;
 export const PLAYER_SPEED = 5;
@@ -33,7 +34,7 @@ export const ITEM_RANGE = {
   potion: 130
 };
 
-export const ACTIVE_RADIUS = 1200;
+export const ACTIVE_RADIUS = 800;
 export const FUSION_COUNT = 5;
 
 export const SLIME_SPLIT_CHANCE = 0.6;

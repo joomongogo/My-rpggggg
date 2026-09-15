@@ -4,6 +4,7 @@ import {
   MIN_RESPAWN_DISTANCE,
   MONSTERS_PER_ZONE,
   RESPAWN_TIME,
+  SAFE_SPAWN_RADIUS,
   SPAWN_ATTEMPTS,
   SPAWN_X,
   SPAWN_Y
@@ -26,6 +27,36 @@ export const ZONE_RINGS = [
   [4550, 5200],
   [5200, 5800]
 ];
+
+function typesForZone(zoneIndex) {
+  if (zoneIndex <= 0) {
+    return ["slime"];
+  }
+  if (zoneIndex === 1) {
+    return ["slime", "zombie"];
+  }
+  return TYPES;
+}
+
+function pickTypeForZone(zoneIndex, slotIndex) {
+  const types = typesForZone(zoneIndex);
+  return types[slotIndex % types.length];
+}
+
+function randomTypeForZone(zoneIndex) {
+  const types = typesForZone(zoneIndex);
+  return types[Math.floor(Math.random() * types.length)];
+}
+
+function zoneCapacity(zoneIndex) {
+  if (zoneIndex <= 0) {
+    return 4;
+  }
+  if (zoneIndex === 1) {
+    return 6;
+  }
+  return MONSTERS_PER_ZONE;
+}
 
 function inMap(x, y) {
   return x >= MARGIN && x <= MAP_WIDTH - MARGIN && y >= MARGIN && y <= MAP_HEIGHT - MARGIN;
