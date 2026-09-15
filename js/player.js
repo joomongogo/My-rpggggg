@@ -14,6 +14,7 @@ import {
   SPAWN_Y
 } from "./constants.js";
 import { createLoadout, giveStarterLoadout } from "./loadout.js";
+import { applyProgress } from "./save.js";
 
 export function createPlayer() {
   const player = {
@@ -32,7 +33,9 @@ export function createPlayer() {
     respawnTimer: 0
   };
 
-  giveStarterLoadout(player);
+  if (!applyProgress(player)) {
+    giveStarterLoadout(player);
+  }
   return player;
 }
 

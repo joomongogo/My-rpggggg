@@ -3,6 +3,13 @@ import { createItem } from "./items.js";
 
 export const inventory = [];
 
+export function replaceInventory(items) {
+  inventory.length = 0;
+  if (Array.isArray(items) && items.length > 0) {
+    inventory.push(...items);
+  }
+}
+
 export function createLoadout() {
   return Array.from({ length: SLOT_COUNT }, () => ({
     item: null,

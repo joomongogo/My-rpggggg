@@ -4,7 +4,7 @@ export const SPAWN_X = MAP_WIDTH / 2;
 export const SPAWN_Y = MAP_HEIGHT / 2;
 
 export const SLOT_COUNT = 5;
-export const MONSTERS_PER_ZONE = 6;
+export const MONSTERS_PER_ZONE = 10;
 export const RESPAWN_TIME = 5;
 export const PICKUP_RANGE = 40;
 export const MIN_RESPAWN_DISTANCE = 250;

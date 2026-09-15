@@ -1,11 +1,11 @@
 import { ACTIVE_RADIUS } from "./constants.js";
-import { getRarityIndex, getRarityMult } from "./rarity.js";
+import { getMonsterAtkMult, getMonsterHpMult, getRarityIndex } from "./rarity.js";
 import { damagePlayer } from "./player.js";
 import { onSlimeDefeat } from "./slime.js";
 import { tryStartUndead, updateZombie } from "./zombie.js";
 import { isWitchCasting, updateWitch } from "./witch.js";
 
-const TYPE_BASE = {
+export const TYPE_BASE = {
   slime: { hp: 40, contact: 8, speed: 1.6, size: 22, exp: 12 },
   zombie: { hp: 80, contact: 12, speed: 1.2, size: 26, exp: 20 },
   witch: { hp: 55, contact: 5, speed: 1.3, size: 24, exp: 28 }
@@ -17,22 +17,24 @@ export const monsters = [];
 
 export function createMonster(type, x, y, rarity) {
   const base = TYPE_BASE[type];
-  const mult = getRarityMult(rarity);
+  const hpMult = getMonsterHpMult(rarity);
+  const atkMult = getMonsterAtkMult(rarity);
   const index = getRarityIndex(rarity);
 
   return {
     id: nextId++,
     type,
     rarity,
+    homeZone: 0,
     x,
     y,
     size: base.size * (1 + index * 0.12),
     baseSpeed: base.speed * (1 + index * 0.03),
     speed: base.speed * (1 + index * 0.03),
-    hp: base.hp * mult,
-    maxHp: base.hp * mult,
-    expReward: Math.round(base.exp * mult),
-    contactDamage: base.contact * (0.45 + mult * 0.12),
+    hp: base.hp * hpMult,
+    maxHp: base.hp * hpMult,
+    expReward: Math.round(base.exp * hpMult),
+    contactDamage: base.contact * atkMult,
     alive: true,
     finished: false,
     undead: false,

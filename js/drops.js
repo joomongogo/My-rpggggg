@@ -1,6 +1,7 @@
 import { DROP_LIFETIME, PICKUP_RANGE } from "./constants.js";
 import { createItem } from "./items.js";
 import { addItemToPlayer } from "./loadout.js";
+import { scheduleSave } from "./save.js";
 
 export const drops = [];
 
@@ -24,6 +25,7 @@ export function updateDrops(player, dt) {
     const near = Math.hypot(player.x - drop.x, player.y - drop.y) < PICKUP_RANGE + player.size;
     if (near && player.hp > 0) {
       addItemToPlayer(player, drop.item);
+      scheduleSave(player);
       drops.splice(i, 1);
       continue;
     }

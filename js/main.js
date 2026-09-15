@@ -1,3 +1,4 @@
+import { recordKill } from "./bestiary.js";
 import { bindInput, getMoveVector } from "./input.js";
 import { updateCamera } from "./camera.js";
 import { drawWorld } from "./world.js";
@@ -7,6 +8,7 @@ import { populateWorld, queueRespawn, spawnSplitSlimes, updateRespawns } from ".
 import { drops, spawnDrop, updateDrops } from "./drops.js";
 import { tickCombat } from "./combat.js";
 import { bindUi, syncUi } from "./ui.js";
+import { bindSaveFlush, scheduleSave } from "./save.js";
 import {
   drawDrops,
   drawEffects,
@@ -30,14 +32,17 @@ const player = createPlayer();
 populateWorld(player);
 bindInput();
 bindUi(player);
+bindSaveFlush(player);
 
 function onMonsterResolved(monster, result) {
   if (result.split) {
-    spawnSplitSlimes(result.split);
+    spawnSplitSlimes(result.split, monster);
     return;
   }
 
   addExperience(player, result.exp || 0);
+  scheduleSave(player);
+  recordKill(monster.type, monster.rarity);
   if (result.drop) {
     spawnDrop(result.drop, monster.rarity, monster.x, monster.y);
   }
@@ -58,6 +63,7 @@ function loop(now) {
   updateDrops(player, dt);
   updateRespawns(player, dt);
   removeFinishedMonsters();
+  scheduleSave(player);
 
   drawWorld(ctx, canvas);
   const time = now / 1000;

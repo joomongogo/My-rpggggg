@@ -5,7 +5,7 @@ import {
   WITCH_SPELL_BASE,
   WITCH_WINDUP
 } from "./constants.js";
-import { getRarityIndex, getRarityMult } from "./rarity.js";
+import { getMonsterAtkMult, getRarityIndex } from "./rarity.js";
 import { damagePlayer } from "./player.js";
 
 export function updateWitch(monster, player, dt) {
@@ -28,7 +28,7 @@ export function updateWitch(monster, player, dt) {
         y: player.y,
         radius: WITCH_AOE_RADIUS * (1 + index * 0.08),
         windup: WITCH_WINDUP,
-        damage: WITCH_SPELL_BASE * Math.sqrt(getRarityMult(monster.rarity))
+        damage: WITCH_SPELL_BASE * getMonsterAtkMult(monster.rarity)
       };
       monster.castTimer = WITCH_CAST_COOLDOWN;
       console.log("[witch] cast", monster.rarity, monster.aoe.damage.toFixed(1));

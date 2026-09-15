@@ -1,3 +1,4 @@
+import { getAllBestiaryEntries, getTotalKills, TYPE_LABEL } from "./bestiary.js";
 import { ACTIVE_RADIUS } from "./constants.js";
 import { bindDrag } from "./drag.js";
 import { canFuse, fuseItems, getFusionChance } from "./fusion.js";
@@ -5,15 +6,12 @@ import { inventory } from "./loadout.js";
 import { monsters } from "./monsters.js";
 import { getRarityClass } from "./rarity.js";
 import { isTouchUiVisible } from "./touch.js";
-
-const TYPE_LABEL = {
-  slime: "Slime",
-  zombie: "Zombie",
-  witch: "Witch"
-};
+import { scheduleSave } from "./save.js";
 
 let inventoryOpen = false;
+let dexOpen = false;
 let lastInventoryKey = "";
+let lastDexKills = -1;
 
 function setBar(fillId, textId, ratio, text) {
   const fill = document.getElementById(fillId);
@@ -81,6 +79,7 @@ function renderInventory(player) {
       fuse.addEventListener("click", (event) => {
         event.stopPropagation();
         fuseItems(group.type, group.rarity);
+        scheduleSave(player);
         renderInventory(player);
       });
       tile.appendChild(fuse);
@@ -90,7 +89,33 @@ function renderInventory(player) {
   }
 }
 
+function renderBestiary() {
+  const list = document.getElementById("bestiary-list");
+  if (!list) {
+    return;
+  }
+  list.innerHTML = "";
+  for (const entry of getAllBestiaryEntries()) {
+    const card = document.createElement("div");
+    card.className = `bestiary-card ${entry.unlocked ? getRarityClass(entry.rarity) : "locked"}`;
+    if (!entry.unlocked) {
+      card.innerHTML = `<div class="bestiary-name">???</div><div class="bestiary-meta">${entry.rarity}</div>`;
+    } else {
+      card.innerHTML =
+        `<div class="bestiary-name">${entry.name}</div>` +
+        `<div class="bestiary-meta">Kills ${entry.kills} · HP ${entry.hp} · Touch ${entry.contact}/s</div>` +
+        `<div class="bestiary-blurb">${entry.blurb}</div>`;
+    }
+    list.appendChild(card);
+  }
+}
+
 function setInventoryOpen(open, player) {
+  if (open) {
+    dexOpen = false;
+    document.getElementById("bestiary-panel")?.classList.remove("visible");
+    document.getElementById("dex-button")?.classList.remove("open");
+  }
   inventoryOpen = open;
   const panel = document.getElementById("inventory-panel");
   const button = document.getElementById("bag-button");
@@ -102,6 +127,27 @@ function setInventoryOpen(open, player) {
   }
   if (inventoryOpen) {
     renderInventory(player);
+  }
+}
+
+function setDexOpen(open) {
+  if (open) {
+    inventoryOpen = false;
+    document.getElementById("inventory-panel")?.classList.remove("visible");
+    document.getElementById("bag-button")?.classList.remove("open");
+  }
+  dexOpen = open;
+  const panel = document.getElementById("bestiary-panel");
+  const button = document.getElementById("dex-button");
+  if (panel) {
+    panel.classList.toggle("visible", dexOpen);
+  }
+  if (button) {
+    button.classList.toggle("open", dexOpen);
+  }
+  if (dexOpen) {
+    renderBestiary();
+    lastDexKills = getTotalKills();
   }
 }
 
@@ -155,6 +201,7 @@ function syncBossBar(player) {
 
 export function bindUi(player) {
   bindDrag(player, () => {
+    scheduleSave(player);
     if (inventoryOpen) {
       renderInventory(player);
     }
@@ -170,15 +217,31 @@ export function bindUi(player) {
     });
   }
 
+  const dexButton = document.getElementById("dex-button");
+  if (dexButton) {
+    dexButton.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setDexOpen(!dexOpen);
+    });
+  }
+
   document.addEventListener("keydown", (event) => {
-    if (event.repeat || event.key.toLowerCase() !== "e") {
+    if (event.repeat) {
       return;
     }
     if (event.target && ["INPUT", "TEXTAREA"].includes(event.target.tagName)) {
       return;
     }
-    event.preventDefault();
-    setInventoryOpen(!inventoryOpen, player);
+    const key = event.key.toLowerCase();
+    if (key === "e") {
+      event.preventDefault();
+      setInventoryOpen(!inventoryOpen, player);
+    }
+    if (key === "b") {
+      event.preventDefault();
+      setDexOpen(!dexOpen);
+    }
   });
 }
 
@@ -204,8 +267,8 @@ export function syncUi(player) {
   const hint = document.getElementById("hud-hint");
   if (hint) {
     hint.textContent = isTouchUiVisible()
-      ? "Move: swipe / Bag: E"
-      : "Move: WASD / Bag: E";
+      ? "Move: stick / Bag / Dex"
+      : "Move: WASD / Bag: E / Dex: B";
   }
 
   const bag = document.getElementById("hud-bag");
@@ -256,6 +319,14 @@ export function syncUi(player) {
       cool.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
     }
   });
+
+  if (dexOpen) {
+    const total = getTotalKills();
+    if (total !== lastDexKills) {
+      renderBestiary();
+      lastDexKills = total;
+    }
+  }
 
   syncBossBar(player);
 

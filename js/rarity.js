@@ -11,15 +11,15 @@ export const RARITY_ORDER = [
 ];
 
 const RARITY_DATA = {
-  Basic: { mult: 1, minDist: 0, maxDist: 900, color: "#9aa0a6" },
-  Decent: { mult: 1.6, minDist: 900, maxDist: 1800, color: "#3d7dff" },
-  Nice: { mult: 2.6, minDist: 1800, maxDist: 2800, color: "#ff9f2e" },
-  Great: { mult: 4.2, minDist: 2800, maxDist: 3900, color: "#3fc85a" },
-  Super: { mult: 7, minDist: 3900, maxDist: 5100, color: "#67dcff" },
-  Hyper: { mult: 12, minDist: 5100, maxDist: 6400, color: "#fdf6d8" },
-  Amber: { mult: 20, minDist: 6400, maxDist: 7800, color: "#ff4a3d" },
-  Eternal: { mult: 35, minDist: 7800, maxDist: 9300, color: "#ffd400" },
-  X_: { mult: 60, minDist: 9300, maxDist: Infinity, color: "#ff4d6d" }
+  Basic: { minDist: 0, maxDist: 650, color: "#9aa0a6" },
+  Decent: { minDist: 650, maxDist: 1300, color: "#3d7dff" },
+  Nice: { minDist: 1300, maxDist: 1950, color: "#ff9f2e" },
+  Great: { minDist: 1950, maxDist: 2600, color: "#3fc85a" },
+  Super: { minDist: 2600, maxDist: 3250, color: "#67dcff" },
+  Hyper: { minDist: 3250, maxDist: 3900, color: "#fdf6d8" },
+  Amber: { minDist: 3900, maxDist: 4550, color: "#ff4a3d" },
+  Eternal: { minDist: 4550, maxDist: 5200, color: "#ffd400" },
+  X_: { minDist: 5200, maxDist: Infinity, color: "#ff4d6d" }
 };
 
 export function getRarityIndex(rarity) {
@@ -31,8 +31,20 @@ export function getRarityData(rarity) {
   return RARITY_DATA[rarity] || RARITY_DATA.Basic;
 }
 
+export function getWeaponMult(rarity) {
+  return 1 + getRarityIndex(rarity) * 0.35;
+}
+
+export function getMonsterHpMult(rarity) {
+  return 2.4 ** getRarityIndex(rarity);
+}
+
+export function getMonsterAtkMult(rarity) {
+  return 1.9 ** getRarityIndex(rarity);
+}
+
 export function getRarityMult(rarity) {
-  return getRarityData(rarity).mult;
+  return getWeaponMult(rarity);
 }
 
 export function getRarityColor(rarity, time = 0) {

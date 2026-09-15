@@ -1,5 +1,5 @@
 import { ITEM_RANGE, ITEM_RELOAD } from "./constants.js";
-import { getRarityIndex, getRarityMult } from "./rarity.js";
+import { getRarityIndex, getWeaponMult } from "./rarity.js";
 
 const BASE = {
   fang: {
@@ -28,7 +28,7 @@ const BASE = {
 
 export function createItem(type, rarity) {
   const base = BASE[type];
-  const mult = getRarityMult(rarity);
+  const mult = getWeaponMult(rarity);
   const index = getRarityIndex(rarity);
   const reloadCut = Math.max(0.65, 1 - index * 0.04);
 
@@ -43,7 +43,7 @@ export function createItem(type, rarity) {
   };
 
   if (type === "fang") {
-    item.lifesteal = Math.min(0.25, base.lifesteal * (1 + index * 0.12));
+    item.lifesteal = Math.min(0.12, base.lifesteal * (1 + index * 0.08));
   }
 
   if (type === "mucus") {

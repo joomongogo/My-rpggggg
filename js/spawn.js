@@ -13,28 +13,26 @@ import { rollZoneRarity } from "./rarity.js";
 
 const TYPES = ["slime", "zombie", "witch"];
 const respawns = [];
+const MARGIN = 80;
 
 export const ZONE_RINGS = [
-  [280, 820],
-  [1000, 1700],
-  [1900, 2700],
-  [2900, 3800],
-  [4000, 5000],
-  [5200, 6300],
-  [6500, 7700],
-  [7900, 9200],
-  [9400, 10500]
+  [0, 650],
+  [650, 1300],
+  [1300, 1950],
+  [1950, 2600],
+  [2600, 3250],
+  [3250, 3900],
+  [3900, 4550],
+  [4550, 5200],
+  [5200, 5800]
 ];
+
+function inMap(x, y) {
+  return x >= MARGIN && x <= MAP_WIDTH - MARGIN && y >= MARGIN && y <= MAP_HEIGHT - MARGIN;
+}
 
 function distanceFromSpawn(x, y) {
   return Math.hypot(x - SPAWN_X, y - SPAWN_Y);
-}
-
-function randomMapPoint() {
-  return {
-    x: 80 + Math.random() * (MAP_WIDTH - 160),
-    y: 80 + Math.random() * (MAP_HEIGHT - 160)
-  };
 }
 
 export function zoneIndexFromDistance(distance) {
@@ -44,6 +42,9 @@ export function zoneIndexFromDistance(distance) {
       return i;
     }
   }
+  if (distance < ZONE_RINGS[0][0]) {
+    return 0;
+  }
   return ZONE_RINGS.length - 1;
 }
 
@@ -52,7 +53,7 @@ function zoneCount(zoneIndex) {
     if (monster.finished && !monster.undead) {
       return false;
     }
-    return zoneIndexFromDistance(distanceFromSpawn(monster.x, monster.y)) === zoneIndex;
+    return monster.homeZone === zoneIndex;
   }).length;
 }
 
@@ -61,45 +62,49 @@ function pendingCount(zoneIndex) {
 }
 
 export function findSpawnPoint(player, preferredDistance) {
-  let fallback = randomMapPoint();
-
   for (let i = 0; i < SPAWN_ATTEMPTS; i++) {
-    let point;
-    if (preferredDistance) {
-      const angle = Math.random() * Math.PI * 2;
-      const jitter = preferredDistance + (Math.random() - 0.5) * 240;
-      point = {
-        x: SPAWN_X + Math.cos(angle) * jitter,
-        y: SPAWN_Y + Math.sin(angle) * jitter
-      };
-      point.x = Math.max(80, Math.min(MAP_WIDTH - 80, point.x));
-      point.y = Math.max(80, Math.min(MAP_HEIGHT - 80, point.y));
-    } else {
-      point = randomMapPoint();
+    const angle = Math.random() * Math.PI * 2;
+    const jitter = preferredDistance + (Math.random() - 0.5) * 80;
+    const point = {
+      x: SPAWN_X + Math.cos(angle) * jitter,
+      y: SPAWN_Y + Math.sin(angle) * jitter
+    };
+
+    if (!inMap(point.x, point.y)) {
+      continue;
     }
 
     const awayFromPlayer = !player || Math.hypot(player.x - point.x, player.y - point.y) >= MIN_RESPAWN_DISTANCE;
     if (awayFromPlayer) {
       return point;
     }
-    fallback = point;
   }
 
-  return fallback;
+  return null;
 }
 
-export function spawnMonster(type, x, y, rarity) {
+export function spawnMonster(type, x, y, rarity, homeZone) {
   const monster = createMonster(type, x, y, rarity);
+  monster.homeZone = homeZone ?? zoneIndexFromDistance(distanceFromSpawn(x, y));
   monsters.push(monster);
   return monster;
 }
 
 function spawnInZone(player, zoneIndex, type) {
   const [minDist, maxDist] = ZONE_RINGS[zoneIndex];
-  const distance = minDist + Math.random() * (maxDist - minDist);
+  const distance = minDist + Math.random() * Math.max(1, maxDist - minDist);
   const point = findSpawnPoint(player, distance);
+  if (!point) {
+    return null;
+  }
   const rarity = rollZoneRarity(distanceFromSpawn(point.x, point.y));
-  return spawnMonster(type || TYPES[Math.floor(Math.random() * TYPES.length)], point.x, point.y, rarity);
+  return spawnMonster(
+    type || TYPES[Math.floor(Math.random() * TYPES.length)],
+    point.x,
+    point.y,
+    rarity,
+    zoneIndex
+  );
 }
 
 export function populateWorld(player) {
@@ -116,7 +121,7 @@ export function populateWorld(player) {
 }
 
 export function queueRespawn(source) {
-  const zoneIndex = zoneIndexFromDistance(distanceFromSpawn(source.x, source.y));
+  const zoneIndex = source.homeZone ?? zoneIndexFromDistance(distanceFromSpawn(source.x, source.y));
   if (zoneCount(zoneIndex) + pendingCount(zoneIndex) >= MONSTERS_PER_ZONE) {
     return;
   }
@@ -127,10 +132,11 @@ export function queueRespawn(source) {
   });
 }
 
-export function spawnSplitSlimes(specs) {
+export function spawnSplitSlimes(specs, parent) {
   const created = [];
+  const homeZone = parent?.homeZone ?? 0;
   for (const spec of specs) {
-    created.push(spawnMonster("slime", spec.x, spec.y, spec.rarity));
+    created.push(spawnMonster("slime", spec.x, spec.y, spec.rarity, homeZone));
   }
   return created;
 }

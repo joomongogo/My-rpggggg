@@ -80,7 +80,7 @@ function applyDrop(player, source, target) {
 export function bindDrag(player, onChange) {
   document.addEventListener("pointerdown", (event) => {
     const sourceEl = event.target.closest?.(".slot-button, .inventory-item");
-    if (!sourceEl || event.target.closest?.(".fuse-button")) {
+    if (!sourceEl || event.target.closest?.(".fuse-button, #bag-button, #dex-button")) {
       return;
     }
 
@@ -99,6 +99,7 @@ export function bindDrag(player, onChange) {
       label: sourceEl.textContent.trim(),
       emptySlot
     };
+    sourceEl.setPointerCapture?.(event.pointerId);
   });
 
   document.addEventListener("pointermove", (event) => {

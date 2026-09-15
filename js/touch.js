@@ -71,6 +71,9 @@ export function bindTouchControls() {
   }
 
   pad.addEventListener("pointerdown", (event) => {
+    if (event.target.closest?.("#bag-button, #dex-button, #inventory-panel, #bestiary-panel, #slot-bar")) {
+      return;
+    }
     event.preventDefault();
     showTouchUi();
     joystick.active = true;
