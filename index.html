@@ -28,7 +28,7 @@
         <div id="exp-fill" class="bar-fill"></div>
         <span id="exp-text">EXP 0 / 100</span>
       </div>
-      <div id="hud-hint">Move: WASD / Bag: E / Dex: B</div>
+      <div id="hud-hint">Move: WASD / Bag: E / Fuse: F / Dex: B</div>
       <div id="hud-bag">Bag 0</div>
     </div>
   </div>
@@ -41,13 +41,22 @@
     </div>
   </div>
 
+  <canvas id="minimap" width="180" height="180"></canvas>
+
   <button id="bag-button" type="button">Bag 0</button>
+  <button id="fuse-button" type="button">Fuse</button>
   <button id="dex-button" type="button">Dex</button>
 
   <div id="inventory-panel">
     <div id="inventory-title">Inventory (E)</div>
-    <div id="inventory-help">Drag to equip. Fuse 5 of the same weapon. Fail returns 2.</div>
+    <div id="inventory-help">Drag an icon onto a slot to equip.</div>
     <div id="inventory-list"></div>
+  </div>
+
+  <div id="fuse-panel">
+    <div id="fuse-title">Fuse (F)</div>
+    <div id="fuse-help">Fuse 5 of the same weapon. Fail returns 2.</div>
+    <div id="fuse-list"></div>
   </div>
 
   <div id="bestiary-panel">

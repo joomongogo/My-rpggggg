@@ -1,4 +1,7 @@
 import { ACTIVE_RADIUS } from "./constants.js";
+import { updateBat } from "./bat.js";
+import { updateGolem } from "./golem.js";
+import { moveWithSlide } from "./map.js";
 import { getMonsterAtkMult, getMonsterHpMult, getRarityIndex } from "./rarity.js";
 import { damagePlayer } from "./player.js";
 import { onSlimeDefeat } from "./slime.js";
@@ -8,7 +11,9 @@ import { isWitchCasting, updateWitch } from "./witch.js";
 export const TYPE_BASE = {
   slime: { hp: 40, contact: 8, speed: 1.6, size: 22, exp: 12 },
   zombie: { hp: 80, contact: 12, speed: 1.2, size: 26, exp: 20 },
-  witch: { hp: 55, contact: 5, speed: 1.3, size: 24, exp: 28 }
+  witch: { hp: 55, contact: 5, speed: 1.3, size: 24, exp: 28 },
+  bat: { hp: 22, contact: 6, speed: 2.35, size: 16, exp: 16 },
+  golem: { hp: 140, contact: 16, speed: 0.72, size: 34, exp: 36 }
 };
 
 let nextId = 1;
@@ -42,7 +47,11 @@ export function createMonster(type, x, y, rarity) {
     slowTimer: 0,
     slowAmount: 0,
     castTimer: 1 + Math.random() * 2,
-    aoe: null
+    aoe: null,
+    dashTimer: 0.4 + Math.random(),
+    dashing: 0,
+    dashX: 0,
+    dashY: 0
   };
 }
 
@@ -87,6 +96,10 @@ function resolveDefeat(monster, player, onResolved) {
     result = { exp: monster.expReward, drop: "potion" };
   } else if (monster.type === "zombie") {
     result = { exp: monster.expReward, drop: "fang" };
+  } else if (monster.type === "bat") {
+    result = { exp: monster.expReward, drop: "dart" };
+  } else if (monster.type === "golem") {
+    result = { exp: monster.expReward, drop: "boulder" };
   }
 
   onResolved(monster, result);
@@ -135,13 +148,35 @@ export function updateMonsters(player, dt, onResolved) {
       const dy = player.y - monster.y;
       const distance = Math.hypot(dx, dy);
       const speed = monster.baseSpeed * (1 - monster.slowAmount) * 60 * dt;
+      let dirX = distance > 1 ? dx / distance : 0;
+      let dirY = distance > 1 ? dy / distance : 0;
+      let speedMul = 1;
 
-      if (distance > 1) {
-        monster.x += (dx / distance) * speed;
-        monster.y += (dy / distance) * speed;
+      if (monster.type === "bat") {
+        const dash = updateBat(monster, player, dt);
+        if (dash) {
+          dirX = dash.dirX;
+          dirY = dash.dirY;
+          speedMul = dash.extraSpeed;
+        }
+      } else if (monster.type === "golem") {
+        updateGolem(monster, dt);
       }
 
-      if (distance < player.size + monster.size) {
+      if (distance > 1 || speedMul > 1) {
+        const next = moveWithSlide(
+          monster.x,
+          monster.y,
+          dirX * speed * speedMul,
+          dirY * speed * speedMul,
+          monster.size * 0.85
+        );
+        monster.x = next.x;
+        monster.y = next.y;
+      }
+
+      const after = Math.hypot(player.x - monster.x, player.y - monster.y);
+      if (after < player.size + monster.size) {
         damagePlayer(player, monster.contactDamage * dt);
       }
     }

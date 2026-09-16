@@ -1,6 +1,4 @@
 import {
-  MAP_HEIGHT,
-  MAP_WIDTH,
   PLAYER_DAMAGE,
   PLAYER_MAX_EXP,
   PLAYER_MAX_HP,
@@ -14,6 +12,7 @@ import {
   SPAWN_Y
 } from "./constants.js";
 import { createLoadout, giveStarterLoadout } from "./loadout.js";
+import { moveWithSlide } from "./map.js";
 import { applyProgress } from "./save.js";
 
 export function createPlayer() {
@@ -53,11 +52,15 @@ export function updatePlayer(player, move, dt) {
   }
 
   const frameSpeed = player.speed * 60 * dt;
-  player.x += move.x * frameSpeed;
-  player.y += move.y * frameSpeed;
-
-  player.x = Math.max(player.size, Math.min(MAP_WIDTH - player.size, player.x));
-  player.y = Math.max(player.size, Math.min(MAP_HEIGHT - player.size, player.y));
+  const next = moveWithSlide(
+    player.x,
+    player.y,
+    move.x * frameSpeed,
+    move.y * frameSpeed,
+    player.size
+  );
+  player.x = next.x;
+  player.y = next.y;
 }
 
 export function addExperience(player, amount) {

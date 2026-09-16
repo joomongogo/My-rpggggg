@@ -80,7 +80,7 @@ function applyDrop(player, source, target) {
 export function bindDrag(player, onChange) {
   document.addEventListener("pointerdown", (event) => {
     const sourceEl = event.target.closest?.(".slot-button, .inventory-item");
-    if (!sourceEl || event.target.closest?.(".fuse-button, #bag-button, #dex-button")) {
+    if (!sourceEl || event.target.closest?.(".fuse-button, #bag-button, #fuse-button, #dex-button")) {
       return;
     }
 

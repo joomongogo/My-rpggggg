@@ -10,9 +10,10 @@ import {
   SPAWN_Y
 } from "./constants.js";
 import { createMonster, monsters } from "./monsters.js";
+import { isWalkable } from "./map.js";
 import { rollZoneRarity } from "./rarity.js";
 
-const TYPES = ["slime", "zombie", "witch"];
+const TYPES = ["slime", "zombie", "witch", "bat", "golem"];
 const respawns = [];
 const MARGIN = 80;
 
@@ -34,6 +35,9 @@ function typesForZone(zoneIndex) {
   }
   if (zoneIndex === 1) {
     return ["slime", "zombie"];
+  }
+  if (zoneIndex === 2) {
+    return ["slime", "zombie", "bat"];
   }
   return TYPES;
 }
@@ -104,7 +108,7 @@ export function findSpawnPoint(player, preferredDistance, maxDistance = Infinity
       y: SPAWN_Y + Math.sin(angle) * jitter
     };
 
-    if (!inMap(point.x, point.y)) {
+    if (!inMap(point.x, point.y) || !isWalkable(point.x, point.y, 24)) {
       continue;
     }
 
@@ -128,19 +132,22 @@ function spawnInZone(player, zoneIndex, type) {
   const [minDist, maxDist] = ZONE_RINGS[zoneIndex];
   const spawnMin = Math.max(minDist, SAFE_SPAWN_RADIUS);
   const spawnMax = Math.max(spawnMin + 1, maxDist);
-  const distance = spawnMin + Math.random() * (spawnMax - spawnMin);
-  const point = findSpawnPoint(player, distance, spawnMax - 1);
-  if (!point) {
-    return null;
+  for (let n = 0; n < 6; n++) {
+    const distance = spawnMin + Math.random() * (spawnMax - spawnMin);
+    const point = findSpawnPoint(player, distance, spawnMax - 1);
+    if (!point) {
+      continue;
+    }
+    const rarity = rollZoneRarity(distanceFromSpawn(point.x, point.y));
+    return spawnMonster(
+      type || randomTypeForZone(zoneIndex),
+      point.x,
+      point.y,
+      rarity,
+      zoneIndex
+    );
   }
-  const rarity = rollZoneRarity(distanceFromSpawn(point.x, point.y));
-  return spawnMonster(
-    type || randomTypeForZone(zoneIndex),
-    point.x,
-    point.y,
-    rarity,
-    zoneIndex
-  );
+  return null;
 }
 
 export function populateWorld(player) {

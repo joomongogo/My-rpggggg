@@ -9,6 +9,8 @@ import { drops, spawnDrop, updateDrops } from "./drops.js";
 import { tickCombat } from "./combat.js";
 import { bindUi, syncUi } from "./ui.js";
 import { bindSaveFlush, scheduleSave } from "./save.js";
+import { generateMap } from "./map.js";
+import { drawMinimap } from "./minimap.js";
 import {
   drawDrops,
   drawEffects,
@@ -28,6 +30,7 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
+generateMap();
 const player = createPlayer();
 populateWorld(player);
 bindInput();
@@ -73,6 +76,7 @@ function loop(now) {
   drawPlayer(ctx, player);
   drawLoadout(ctx, player, time);
   syncUi(player);
+  drawMinimap(player, monsters);
 
   requestAnimationFrame(loop);
 }

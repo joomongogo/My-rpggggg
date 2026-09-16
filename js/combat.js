@@ -67,6 +67,18 @@ function fireMucus(item, player, target, onResolved) {
   }
 }
 
+function fireBolt(item, target, onResolved, player) {
+  const dealt = applyMonsterHit(target, item.damage, player, onResolved);
+  if (dealt > 0) {
+    addEffect({
+      type: item.type,
+      x: target.x,
+      y: target.y,
+      radius: item.type === "boulder" ? 22 : 12
+    });
+  }
+}
+
 function firePotion(item, player, targets, onResolved) {
   const center = closest(player, targets);
   if (!center) {
@@ -115,8 +127,10 @@ export function tickCombat(player, monsterList, dt, onResolved) {
       const target = closest(player, targets);
       if (item.type === "fang") {
         fireFang(item, player, target, onResolved, monsterList);
-      } else {
+      } else if (item.type === "mucus") {
         fireMucus(item, player, target, onResolved);
+      } else {
+        fireBolt(item, target, onResolved, player);
       }
     }
 

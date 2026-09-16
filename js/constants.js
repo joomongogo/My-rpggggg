@@ -8,7 +8,7 @@ export const MONSTERS_PER_ZONE = 10;
 export const RESPAWN_TIME = 5;
 export const PICKUP_RANGE = 40;
 export const MIN_RESPAWN_DISTANCE = 250;
-export const SPAWN_ATTEMPTS = 50;
+export const SPAWN_ATTEMPTS = 120;
 export const SAFE_SPAWN_RADIUS = 480;
 
 export const PLAYER_SIZE = 20;
@@ -25,13 +25,17 @@ export const CONTACT_DPS_SCALE = 12;
 export const ITEM_RELOAD = {
   fang: 0.45,
   mucus: 1.2,
-  potion: 2.4
+  potion: 2.4,
+  dart: 0.28,
+  boulder: 2.3
 };
 
 export const ITEM_RANGE = {
   fang: 55,
   mucus: 90,
-  potion: 130
+  potion: 130,
+  dart: 95,
+  boulder: 70
 };
 
 export const ACTIVE_RADIUS = 800;

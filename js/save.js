@@ -6,7 +6,7 @@ import { RARITY_ORDER } from "./rarity.js";
 const STORAGE_KEY = "myrpg-save";
 const SAVE_VERSION = 1;
 const DEBOUNCE_MS = 2000;
-const ITEM_TYPES = new Set(["fang", "mucus", "potion"]);
+const ITEM_TYPES = new Set(["fang", "mucus", "potion", "dart", "boulder"]);
 
 let currentPlayer = null;
 let saveTimer = null;

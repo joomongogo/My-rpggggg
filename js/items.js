@@ -23,6 +23,18 @@ const BASE = {
     color: "#b388ff",
     damage: 16,
     aoeRadius: 70
+  },
+  dart: {
+    type: "dart",
+    label: "Dart",
+    color: "#d4c36a",
+    damage: 7
+  },
+  boulder: {
+    type: "boulder",
+    label: "Boulder",
+    color: "#c4b8a4",
+    damage: 38
   }
 };
 
@@ -64,6 +76,12 @@ export function dropTypeForMonster(monsterType) {
   }
   if (monsterType === "zombie") {
     return "fang";
+  }
+  if (monsterType === "bat") {
+    return "dart";
+  }
+  if (monsterType === "golem") {
+    return "boulder";
   }
   return "potion";
 }

@@ -1,15 +1,6 @@
 import { MAP_HEIGHT, MAP_WIDTH, SPAWN_X, SPAWN_Y, TILE_SIZE } from "./constants.js";
 import { camera, worldToScreen } from "./camera.js";
-
-const DECORATIONS = [
-  { x: 5920, y: 5920, w: 160, h: 36 },
-  { x: 5800, y: 6100, w: 80, h: 180 },
-  { x: 6180, y: 5860, w: 220, h: 32 },
-  { x: 3500, y: 4000, w: 200, h: 40 },
-  { x: 8200, y: 3100, w: 50, h: 220 },
-  { x: 2400, y: 8600, w: 180, h: 44 },
-  { x: 9100, y: 8800, w: 160, h: 40 }
-];
+import { forEachWallInView } from "./map.js";
 
 export function drawWorld(ctx, canvas) {
   ctx.fillStyle = "#172417";
@@ -30,6 +21,15 @@ export function drawWorld(ctx, canvas) {
     }
   }
 
+  ctx.fillStyle = "#243024";
+  ctx.strokeStyle = "#314531";
+  ctx.lineWidth = 1;
+  forEachWallInView(camera.x - 20, camera.y - 20, endX + 20, endY + 20, (x, y, w, h) => {
+    const screen = worldToScreen(x, y);
+    ctx.fillRect(screen.x, screen.y, w, h);
+    ctx.strokeRect(screen.x, screen.y, w, h);
+  });
+
   const hub = worldToScreen(SPAWN_X, SPAWN_Y);
   ctx.beginPath();
   ctx.arc(hub.x, hub.y, 90, 0, Math.PI * 2);
@@ -38,12 +38,6 @@ export function drawWorld(ctx, canvas) {
   ctx.strokeStyle = "rgba(210, 230, 180, 0.55)";
   ctx.lineWidth = 3;
   ctx.stroke();
-
-  ctx.fillStyle = "#555";
-  for (const deco of DECORATIONS) {
-    const screen = worldToScreen(deco.x, deco.y);
-    ctx.fillRect(screen.x, screen.y, deco.w, deco.h);
-  }
 
   ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
   ctx.strokeRect(

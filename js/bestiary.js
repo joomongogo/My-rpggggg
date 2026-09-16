@@ -6,16 +6,20 @@ const STORAGE_KEY = "myrpg-bestiary";
 export const TYPE_LABEL = {
   slime: "Slime",
   zombie: "Zombie",
-  witch: "Witch"
+  witch: "Witch",
+  bat: "Bat",
+  golem: "Golem"
 };
 
 export const TYPE_BLURB = {
   slime: "On death, 60% chance to split into two lower-rarity slimes.",
   zombie: "At 0 HP, stays undead and invincible for 5 seconds.",
-  witch: "Casts a delayed ground spell under the player."
+  witch: "Casts a delayed ground spell under the player.",
+  bat: "Fast and frail. Dashes sideways through corridors.",
+  golem: "Slow, thick, and fills a hallway. Drops a heavy slam."
 };
 
-export const MONSTER_TYPES = ["slime", "zombie", "witch"];
+export const MONSTER_TYPES = ["slime", "zombie", "witch", "bat", "golem"];
 
 let kills = loadKills();
 

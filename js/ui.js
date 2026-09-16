@@ -1,16 +1,20 @@
 import { getAllBestiaryEntries, getTotalKills, TYPE_LABEL } from "./bestiary.js";
-import { ACTIVE_RADIUS } from "./constants.js";
+import { ACTIVE_RADIUS, FUSION_COUNT } from "./constants.js";
 import { bindDrag } from "./drag.js";
+import { paintItemIcon } from "./draw.js";
 import { canFuse, fuseItems, getFusionChance } from "./fusion.js";
+import { createItem } from "./items.js";
 import { inventory } from "./loadout.js";
 import { monsters } from "./monsters.js";
-import { getRarityClass } from "./rarity.js";
+import { getHigherRarity, getRarityClass } from "./rarity.js";
 import { isTouchUiVisible } from "./touch.js";
 import { scheduleSave } from "./save.js";
 
 let inventoryOpen = false;
+let fuseOpen = false;
 let dexOpen = false;
 let lastInventoryKey = "";
+let lastFuseKey = "";
 let lastDexKills = -1;
 
 function setBar(fillId, textId, ratio, text) {
@@ -42,7 +46,15 @@ function groupInventory() {
   return groups;
 }
 
-function renderInventory(player) {
+function makeIcon(type, rarity, size = 48) {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  paintItemIcon(canvas, createItem(type, rarity));
+  return canvas;
+}
+
+function renderInventory() {
   const list = document.getElementById("inventory-list");
   if (!list) {
     return;
@@ -60,32 +72,79 @@ function renderInventory(player) {
   }
 
   for (const group of groups) {
-    const tile = document.createElement("div");
-    tile.className = `inventory-tile ${getRarityClass(group.rarity)}`;
-
-    const title = document.createElement("button");
-    title.type = "button";
-    title.className = "inventory-item";
-    title.dataset.itemType = group.type;
-    title.dataset.itemRarity = group.rarity;
-    title.textContent = `${group.label} ${group.rarity} x${group.count}`;
-    tile.appendChild(title);
-
-    if (canFuse(group.type, group.rarity)) {
-      const fuse = document.createElement("button");
-      fuse.type = "button";
-      fuse.className = "fuse-button";
-      fuse.textContent = `Fuse ${Math.round(getFusionChance(group.rarity) * 100)}%`;
-      fuse.addEventListener("click", (event) => {
-        event.stopPropagation();
-        fuseItems(group.type, group.rarity);
-        scheduleSave(player);
-        renderInventory(player);
-      });
-      tile.appendChild(fuse);
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = `inventory-item ${getRarityClass(group.rarity)}`;
+    tile.dataset.itemType = group.type;
+    tile.dataset.itemRarity = group.rarity;
+    tile.title = `${group.label} ${group.rarity}`;
+    tile.appendChild(makeIcon(group.type, group.rarity));
+    if (group.count > 1) {
+      const count = document.createElement("span");
+      count.className = "item-count";
+      count.textContent = `x${group.count}`;
+      tile.appendChild(count);
     }
-
     list.appendChild(tile);
+  }
+}
+
+function renderFuse(player) {
+  const list = document.getElementById("fuse-list");
+  if (!list) {
+    return;
+  }
+
+  list.innerHTML = "";
+  const groups = groupInventory().filter((group) => canFuse(group.type, group.rarity));
+
+  if (groups.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "inventory-empty";
+    empty.textContent = `Need ${FUSION_COUNT} of the same weapon.`;
+    list.appendChild(empty);
+    return;
+  }
+
+  for (const group of groups) {
+    const next = getHigherRarity(group.rarity);
+    const row = document.createElement("div");
+    row.className = "fuse-row";
+
+    const from = document.createElement("div");
+    from.className = `fuse-preview ${getRarityClass(group.rarity)}`;
+    from.appendChild(makeIcon(group.type, group.rarity, 44));
+    const fromCount = document.createElement("span");
+    fromCount.className = "item-count";
+    fromCount.textContent = `x${group.count}`;
+    from.appendChild(fromCount);
+    row.appendChild(from);
+
+    const arrow = document.createElement("div");
+    arrow.className = "fuse-arrow";
+    arrow.textContent = ">";
+    row.appendChild(arrow);
+
+    const to = document.createElement("div");
+    to.className = `fuse-preview ${getRarityClass(next)}`;
+    to.appendChild(makeIcon(group.type, next, 44));
+    row.appendChild(to);
+
+    const fuse = document.createElement("button");
+    fuse.type = "button";
+    fuse.className = "fuse-button";
+    fuse.textContent = `${Math.round(getFusionChance(group.rarity) * 100)}%`;
+    fuse.addEventListener("click", (event) => {
+      event.stopPropagation();
+      fuseItems(group.type, group.rarity);
+      scheduleSave(player);
+      renderFuse(player);
+      if (inventoryOpen) {
+        renderInventory();
+      }
+    });
+    row.appendChild(fuse);
+    list.appendChild(row);
   }
 }
 
@@ -110,12 +169,20 @@ function renderBestiary() {
   }
 }
 
+function closeSidePanels() {
+  inventoryOpen = false;
+  fuseOpen = false;
+  dexOpen = false;
+  document.getElementById("inventory-panel")?.classList.remove("visible");
+  document.getElementById("fuse-panel")?.classList.remove("visible");
+  document.getElementById("bestiary-panel")?.classList.remove("visible");
+  document.getElementById("bag-button")?.classList.remove("open");
+  document.getElementById("fuse-button")?.classList.remove("open");
+  document.getElementById("dex-button")?.classList.remove("open");
+}
+
 function setInventoryOpen(open, player) {
-  if (open) {
-    dexOpen = false;
-    document.getElementById("bestiary-panel")?.classList.remove("visible");
-    document.getElementById("dex-button")?.classList.remove("open");
-  }
+  closeSidePanels();
   inventoryOpen = open;
   const panel = document.getElementById("inventory-panel");
   const button = document.getElementById("bag-button");
@@ -130,12 +197,24 @@ function setInventoryOpen(open, player) {
   }
 }
 
-function setDexOpen(open) {
-  if (open) {
-    inventoryOpen = false;
-    document.getElementById("inventory-panel")?.classList.remove("visible");
-    document.getElementById("bag-button")?.classList.remove("open");
+function setFuseOpen(open, player) {
+  closeSidePanels();
+  fuseOpen = open;
+  const panel = document.getElementById("fuse-panel");
+  const button = document.getElementById("fuse-button");
+  if (panel) {
+    panel.classList.toggle("visible", fuseOpen);
   }
+  if (button) {
+    button.classList.toggle("open", fuseOpen);
+  }
+  if (fuseOpen) {
+    renderFuse(player);
+  }
+}
+
+function setDexOpen(open) {
+  closeSidePanels();
   dexOpen = open;
   const panel = document.getElementById("bestiary-panel");
   const button = document.getElementById("dex-button");
@@ -205,6 +284,9 @@ export function bindUi(player) {
     if (inventoryOpen) {
       renderInventory(player);
     }
+    if (fuseOpen) {
+      renderFuse(player);
+    }
     syncUi(player);
   });
 
@@ -214,6 +296,15 @@ export function bindUi(player) {
       event.preventDefault();
       event.stopPropagation();
       setInventoryOpen(!inventoryOpen, player);
+    });
+  }
+
+  const fuseButton = document.getElementById("fuse-button");
+  if (fuseButton) {
+    fuseButton.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setFuseOpen(!fuseOpen, player);
     });
   }
 
@@ -237,6 +328,10 @@ export function bindUi(player) {
     if (key === "e") {
       event.preventDefault();
       setInventoryOpen(!inventoryOpen, player);
+    }
+    if (key === "f") {
+      event.preventDefault();
+      setFuseOpen(!fuseOpen, player);
     }
     if (key === "b") {
       event.preventDefault();
@@ -267,8 +362,8 @@ export function syncUi(player) {
   const hint = document.getElementById("hud-hint");
   if (hint) {
     hint.textContent = isTouchUiVisible()
-      ? "Move: stick / Bag / Dex"
-      : "Move: WASD / Bag: E / Dex: B";
+      ? "Move: stick / Bag / Fuse / Dex"
+      : "Move: WASD / Bag: E / Fuse: F / Dex: B";
   }
 
   const bag = document.getElementById("hud-bag");
@@ -286,7 +381,11 @@ export function syncUi(player) {
   if (inventoryOpen && signature !== lastInventoryKey) {
     renderInventory(player);
   }
+  if (fuseOpen && signature !== lastFuseKey) {
+    renderFuse(player);
+  }
   lastInventoryKey = signature;
+  lastFuseKey = signature;
 
   const buttons = document.querySelectorAll(".slot-button");
   buttons.forEach((button, index) => {
