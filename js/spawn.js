@@ -1,11 +1,18 @@
-import { MIN_RESPAWN_DISTANCE, MONSTERS_PER_ZONE, RESPAWN_TIME, SPAWN_ATTEMPTS } from "./constants.js";
+import {
+  MIN_RESPAWN_DISTANCE,
+  MIN_SPAWN_GAP,
+  MONSTERS_PER_ZONE,
+  PORTAL_RADIUS,
+  RESPAWN_TIME,
+  SPAWN_ATTEMPTS,
+  SPAWN_BODY_RADIUS
+} from "./constants.js";
 import { getArea, getOrigin, isSafeZone } from "./areas.js";
-import { getMapHeight, getMapWidth, isWalkable } from "./map.js";
+import { forEachOpenCell, getMapHeight, getMapWidth, isWalkable } from "./map.js";
 import { createMonster, monsters } from "./monsters.js";
 import { rollZoneRarity } from "./rarity.js";
 
 const respawns = [];
-const MARGIN = 80;
 
 export function getZoneRings() {
   const area = getArea();
@@ -51,13 +58,156 @@ function zoneCapacity(zoneIndex) {
   return MONSTERS_PER_ZONE;
 }
 
-function inMap(x, y) {
-  return x >= MARGIN && x <= getMapWidth() - MARGIN && y >= MARGIN && y <= getMapHeight() - MARGIN;
-}
+const walkCells = [];
 
 function distanceFromOrigin(x, y) {
   const origin = getOrigin();
   return Math.hypot(x - origin.x, y - origin.y);
+}
+
+export function rebuildSpawnCache() {
+  walkCells.length = 0;
+  forEachOpenCell((x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    if (!isWalkable(cx, cy, SPAWN_BODY_RADIUS)) {
+      return;
+    }
+    walkCells.push({
+      x: cx,
+      y: cy,
+      dist: distanceFromOrigin(cx, cy)
+    });
+  });
+}
+
+function livingMonsters() {
+  return monsters.filter((monster) => !monster.finished || monster.undead);
+}
+
+function tooCloseToMonsters(x, y, gap) {
+  for (const monster of livingMonsters()) {
+    if (Math.hypot(monster.x - x, monster.y - y) < gap) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function tooCloseToPortal(x, y) {
+  const area = getArea();
+  for (const portal of area.portals || []) {
+    if (Math.hypot(portal.x - x, portal.y - y) < PORTAL_RADIUS + SPAWN_BODY_RADIUS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isValidSpawn(x, y, player, opts) {
+  if (!isWalkable(x, y, SPAWN_BODY_RADIUS)) {
+    return false;
+  }
+  if (opts.avoidSafe !== false && isSafeZone(x, y)) {
+    return false;
+  }
+  if (opts.avoidPortals !== false && tooCloseToPortal(x, y)) {
+    return false;
+  }
+
+  const originDist = distanceFromOrigin(x, y);
+  if (originDist < opts.minDist || originDist > opts.maxDist) {
+    return false;
+  }
+
+  if (player) {
+    const playerDist = Math.hypot(player.x - x, player.y - y);
+    if (playerDist < opts.minPlayerDist || playerDist > opts.maxPlayerDist) {
+      return false;
+    }
+  }
+
+  const gap = opts.gap ?? MIN_SPAWN_GAP;
+  if (gap > 0 && tooCloseToMonsters(x, y, gap)) {
+    return false;
+  }
+
+  return true;
+}
+
+function pickFromCache(player, opts, attempts) {
+  if (!walkCells.length) {
+    rebuildSpawnCache();
+  }
+  if (!walkCells.length) {
+    return null;
+  }
+
+  for (let i = 0; i < attempts; i++) {
+    const cell = walkCells[(Math.random() * walkCells.length) | 0];
+    if (isValidSpawn(cell.x, cell.y, player, opts)) {
+      return { x: cell.x, y: cell.y };
+    }
+  }
+
+  const found = [];
+  const start = (Math.random() * walkCells.length) | 0;
+  for (let i = 0; i < walkCells.length; i++) {
+    const cell = walkCells[(start + i) % walkCells.length];
+    if (!isValidSpawn(cell.x, cell.y, player, opts)) {
+      continue;
+    }
+    found.push(cell);
+    if (found.length >= 24) {
+      break;
+    }
+  }
+  if (!found.length) {
+    return null;
+  }
+  const chosen = found[(Math.random() * found.length) | 0];
+  return { x: chosen.x, y: chosen.y };
+}
+
+function normalizeSpawnOptions(player, options, maxDistance) {
+  if (typeof options === "number") {
+    const preferred = options;
+    return {
+      minDist: Math.max(0, preferred - 160),
+      maxDist: Number.isFinite(maxDistance) ? maxDistance : preferred + 160,
+      minPlayerDist: MIN_RESPAWN_DISTANCE,
+      maxPlayerDist: Infinity,
+      avoidSafe: true,
+      avoidPortals: true,
+      gap: MIN_SPAWN_GAP
+    };
+  }
+  return {
+    minDist: 0,
+    maxDist: Infinity,
+    minPlayerDist: MIN_RESPAWN_DISTANCE,
+    maxPlayerDist: Infinity,
+    avoidSafe: true,
+    avoidPortals: true,
+    gap: MIN_SPAWN_GAP,
+    ...options
+  };
+}
+
+export function findSpawnPoint(player, options = {}, maxDistance = Infinity) {
+  const opts = normalizeSpawnOptions(player, options, maxDistance);
+  const point = pickFromCache(player, opts, SPAWN_ATTEMPTS);
+  if (point) {
+    return point;
+  }
+
+  const relaxed = { ...opts, gap: Math.max(24, (opts.gap ?? MIN_SPAWN_GAP) * 0.5) };
+  const retry = pickFromCache(player, relaxed, 24);
+  if (retry) {
+    return retry;
+  }
+
+  return pickFromCache(player, { ...opts, gap: 0 }, 16);
 }
 
 export function zoneIndexFromDistance(distance) {
@@ -90,37 +240,6 @@ function pendingCount(zoneIndex) {
   return respawns.filter((job) => job.zoneIndex === zoneIndex).length;
 }
 
-export function findSpawnPoint(player, preferredDistance, maxDistance = Infinity) {
-  const origin = getOrigin();
-  const area = getArea();
-  for (let i = 0; i < SPAWN_ATTEMPTS; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const jitter = Math.min(
-      maxDistance,
-      Math.max(area.safeRadius, preferredDistance + (Math.random() - 0.5) * 80)
-    );
-    const point = {
-      x: origin.x + Math.cos(angle) * jitter,
-      y: origin.y + Math.sin(angle) * jitter
-    };
-
-    if (!inMap(point.x, point.y) || !isWalkable(point.x, point.y, 24)) {
-      continue;
-    }
-    if (isSafeZone(point.x, point.y)) {
-      continue;
-    }
-
-    const awayFromPlayer = !player || Math.hypot(player.x - point.x, player.y - point.y) >= MIN_RESPAWN_DISTANCE;
-    const awayFromEntrance = Math.hypot(point.x - origin.x, point.y - origin.y) >= area.safeRadius;
-    if (awayFromPlayer && awayFromEntrance) {
-      return point;
-    }
-  }
-
-  return null;
-}
-
 export function spawnMonster(type, x, y, rarity, homeZone, extra = {}) {
   const monster = createMonster(type, x, y, rarity);
   monster.homeZone = homeZone ?? zoneIndexFromDistance(distanceFromOrigin(x, y));
@@ -144,18 +263,18 @@ function spawnInZone(player, zoneIndex, type) {
   }
   const rings = getZoneRings();
   const [minDist, maxDist] = rings[zoneIndex] || rings[rings.length - 1];
-  const spawnMin = minDist;
-  const spawnMax = Math.max(spawnMin + 1, maxDist);
-  for (let n = 0; n < 6; n++) {
-    const distance = spawnMin + Math.random() * (spawnMax - spawnMin);
-    const point = findSpawnPoint(player, distance, spawnMax - 1);
-    if (!point) {
-      continue;
-    }
-    const rarity = rollZoneRarity(distanceFromOrigin(point.x, point.y), getArea().safeRadius, getArea().zoneBand);
-    return spawnMonster(type, point.x, point.y, rarity, zoneIndex);
+  const point = findSpawnPoint(player, {
+    minDist,
+    maxDist: Math.max(minDist + 1, maxDist),
+    minPlayerDist: MIN_RESPAWN_DISTANCE,
+    avoidSafe: true,
+    avoidPortals: true
+  });
+  if (!point) {
+    return null;
   }
-  return null;
+  const rarity = rollZoneRarity(distanceFromOrigin(point.x, point.y), getArea().safeRadius, getArea().zoneBand);
+  return spawnMonster(type, point.x, point.y, rarity, zoneIndex);
 }
 
 export function populateWorld(player) {
@@ -197,7 +316,24 @@ export function spawnSplitSlimes(specs, parent) {
   const homeZone = parent?.homeZone ?? 0;
   const ephemeral = Boolean(parent?.ephemeral);
   for (const spec of specs) {
-    created.push(spawnMonster("slime", spec.x, spec.y, spec.rarity, homeZone, { ephemeral }));
+    let x = spec.x;
+    let y = spec.y;
+    if (!isWalkable(x, y, SPAWN_BODY_RADIUS) || tooCloseToPortal(x, y)) {
+      const nearby = findSpawnPoint(null, {
+        minDist: 0,
+        maxDist: Infinity,
+        minPlayerDist: 0,
+        maxPlayerDist: Infinity,
+        avoidSafe: false,
+        avoidPortals: true,
+        gap: MIN_SPAWN_GAP * 0.6
+      });
+      if (nearby) {
+        x = nearby.x;
+        y = nearby.y;
+      }
+    }
+    created.push(spawnMonster("slime", x, y, spec.rarity, homeZone, { ephemeral }));
   }
   return created;
 }

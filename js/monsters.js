@@ -1,11 +1,11 @@
-import { ACTIVE_RADIUS, ZOMBIE_KNOCKBACK, ZOMBIE_SWING_COOLDOWN, ZOMBIE_SWING_EXTRA } from "./constants.js";
+import { ACTIVE_RADIUS, ZOMBIE_SWING_COOLDOWN, ZOMBIE_SWING_EXTRA } from "./constants.js";
 import { updateBat } from "./bat.js";
 import { updateDracula } from "./dracula.js";
 import { updateGolem } from "./golem.js";
 import { updateLeafbug } from "./leafbug.js";
 import { moveWithSlide } from "./map.js";
 import { getMonsterAtkMult, getMonsterHpMult, getRarityIndex } from "./rarity.js";
-import { applyPlayerKnockback, damagePlayer } from "./player.js";
+import { damagePlayer } from "./player.js";
 import { onSlimeDefeat } from "./slime.js";
 import { tryStartUndead, updateZombie } from "./zombie.js";
 import { isWitchCasting, updateWitch } from "./witch.js";
@@ -213,7 +213,6 @@ export function updateMonsters(player, dt, onResolved, playerSafe = false) {
         if (after < reach && monster.attackTimer <= 0) {
           monster.attackTimer = ZOMBIE_SWING_COOLDOWN;
           damagePlayer(player, monster.contactDamage * 0.7);
-          applyPlayerKnockback(player, monster.x, monster.y, ZOMBIE_KNOCKBACK);
         }
       } else if (after < player.size + monster.size) {
         damagePlayer(player, monster.contactDamage * dt);

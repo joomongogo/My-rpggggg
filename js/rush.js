@@ -1,7 +1,6 @@
 import { createItem } from "./items.js";
-import { getMapHeight, getMapWidth, isWalkable } from "./map.js";
 import { RARITY_ORDER } from "./rarity.js";
-import { spawnMonster } from "./spawn.js";
+import { findSpawnPoint, spawnMonster } from "./spawn.js";
 import { monsters } from "./monsters.js";
 
 export const RUSH_DURATION = 60;
@@ -12,8 +11,10 @@ const DIFFICULTY = {
     label: "Easy",
     hpMult: 1,
     atkMult: 1,
-    maxAlive: 8,
-    interval: 2.4,
+    maxAlive: 6,
+    interval: 1.1,
+    burst: 4,
+    perTick: 1,
     types: ["slime"],
     rarities: ["Basic"],
     exp: 80,
@@ -27,8 +28,10 @@ const DIFFICULTY = {
     label: "Normal",
     hpMult: 1.35,
     atkMult: 1.35,
-    maxAlive: 14,
-    interval: 1.5,
+    maxAlive: 10,
+    interval: 0.65,
+    burst: 6,
+    perTick: 2,
     types: ["slime", "bat"],
     rarities: ["Basic", "Decent"],
     exp: 180,
@@ -42,8 +45,10 @@ const DIFFICULTY = {
     label: "Hard",
     hpMult: 1.8,
     atkMult: 1.8,
-    maxAlive: 22,
-    interval: 0.9,
+    maxAlive: 14,
+    interval: 0.32,
+    burst: 10,
+    perTick: 3,
     types: ["slime", "bat", "zombie", "leafbug", "witch"],
     rarities: ["Basic", "Decent", "Nice"],
     exp: 350,
@@ -70,23 +75,42 @@ function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-function rushSpawnPoint(player) {
-  const width = getMapWidth();
-  const height = getMapHeight();
-  for (let i = 0; i < 24; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const dist = 260 + Math.random() * 520;
-    const x = Math.max(80, Math.min(width - 80, player.x + Math.cos(angle) * dist));
-    const y = Math.max(80, Math.min(height - 80, player.y + Math.sin(angle) * dist));
-    if (!isWalkable(x, y, 24)) {
-      continue;
-    }
-    if (Math.hypot(player.x - x, player.y - y) < 180) {
-      continue;
-    }
-    return { x, y };
+function rushPoint(player) {
+  return findSpawnPoint(player, {
+    minDist: 0,
+    maxDist: Infinity,
+    minPlayerDist: 140,
+    maxPlayerDist: 420,
+    avoidSafe: false,
+    avoidPortals: true
+  });
+}
+
+function spawnRushMob(player, cfg) {
+  const point = rushPoint(player);
+  if (!point) {
+    return null;
   }
-  return null;
+  const rarity = pick(cfg.rarities.filter((name) => RARITY_ORDER.includes(name)));
+  return spawnMonster(pick(cfg.types), point.x, point.y, rarity, 0, {
+    ephemeral: true,
+    hpMult: cfg.hpMult,
+    atkMult: cfg.atkMult
+  });
+}
+
+function fillRushMobs(player, count) {
+  const cfg = getRushDifficulty();
+  let spawned = 0;
+  for (let i = 0; i < count; i++) {
+    if (livingRushMobs() >= cfg.maxAlive) {
+      break;
+    }
+    if (spawnRushMob(player, cfg)) {
+      spawned += 1;
+    }
+  }
+  return spawned;
 }
 
 export function getRushDifficulties() {
@@ -105,12 +129,13 @@ export function getRushDifficulty() {
   return DIFFICULTY[rush.difficulty] || DIFFICULTY.easy;
 }
 
-export function beginRush(difficulty) {
+export function beginRush(player, difficulty) {
   const cfg = DIFFICULTY[difficulty] || DIFFICULTY.easy;
   rush.active = true;
   rush.difficulty = cfg.id;
   rush.timeLeft = RUSH_DURATION;
-  rush.spawnAcc = 0.4;
+  rush.spawnAcc = cfg.interval;
+  fillRushMobs(player, cfg.burst);
 }
 
 export function stopRush() {
@@ -147,16 +172,8 @@ export function updateRush(player, dt) {
 
   const cfg = getRushDifficulty();
   if (rush.spawnAcc <= 0 && livingRushMobs() < cfg.maxAlive) {
-    rush.spawnAcc = cfg.interval;
-    const point = rushSpawnPoint(player);
-    if (point) {
-      const rarity = pick(cfg.rarities.filter((name) => RARITY_ORDER.includes(name)));
-      spawnMonster(pick(cfg.types), point.x, point.y, rarity, 0, {
-        ephemeral: true,
-        hpMult: cfg.hpMult,
-        atkMult: cfg.atkMult
-      });
-    }
+    const spawned = fillRushMobs(player, cfg.perTick);
+    rush.spawnAcc = spawned > 0 ? cfg.interval : 0.08;
   }
 
   if (rush.timeLeft <= 0) {

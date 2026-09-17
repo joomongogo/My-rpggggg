@@ -4,7 +4,7 @@ import { drops } from "./drops.js";
 import { generateMap } from "./map.js";
 import { buildMinimap } from "./minimap.js";
 import { monsters } from "./monsters.js";
-import { clearSpawns, populateWorld } from "./spawn.js";
+import { clearSpawns, populateWorld, rebuildSpawnCache } from "./spawn.js";
 
 export const AREA_DEFS = {
   hub: {
@@ -143,6 +143,7 @@ export function enterArea(id, player) {
   }
   current = def;
   generateMap(def);
+  rebuildSpawnCache();
   monsters.length = 0;
   drops.length = 0;
   effects.length = 0;

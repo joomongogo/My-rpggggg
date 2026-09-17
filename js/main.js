@@ -40,7 +40,7 @@ bindUi(player, {
   onChooseRush(difficulty) {
     closeRushSelect();
     enterArea("rush", player);
-    beginRush(difficulty);
+    beginRush(player, difficulty);
   },
   onResetProgress() {
     scheduleSave(player);

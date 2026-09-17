@@ -8,7 +8,9 @@ export const MONSTERS_PER_ZONE = 10;
 export const RESPAWN_TIME = 5;
 export const PICKUP_RANGE = 40;
 export const MIN_RESPAWN_DISTANCE = 250;
-export const SPAWN_ATTEMPTS = 120;
+export const SPAWN_ATTEMPTS = 80;
+export const SPAWN_BODY_RADIUS = 24;
+export const MIN_SPAWN_GAP = 56;
 export const SAFE_SPAWN_RADIUS = 480;
 
 export const PLAYER_SIZE = 20;

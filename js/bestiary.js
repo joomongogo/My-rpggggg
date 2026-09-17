@@ -15,7 +15,7 @@ export const TYPE_LABEL = {
 
 export const TYPE_BLURB = {
   slime: "On death, 60% chance to split into two lower-rarity slimes.",
-  zombie: "Swings with knockback, then stays undead for 5 seconds.",
+  zombie: "Swings with extra reach, then stays undead for 5 seconds.",
   witch: "Casts a delayed ground spell under the player.",
   bat: "Fast and frail. Dashes sideways through corridors.",
   golem: "Slow, thick, and fills a hallway. Drops a heavy slam.",
