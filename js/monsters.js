@@ -1,9 +1,11 @@
-import { ACTIVE_RADIUS } from "./constants.js";
+import { ACTIVE_RADIUS, ZOMBIE_KNOCKBACK, ZOMBIE_SWING_COOLDOWN, ZOMBIE_SWING_EXTRA } from "./constants.js";
 import { updateBat } from "./bat.js";
+import { updateDracula } from "./dracula.js";
 import { updateGolem } from "./golem.js";
+import { updateLeafbug } from "./leafbug.js";
 import { moveWithSlide } from "./map.js";
 import { getMonsterAtkMult, getMonsterHpMult, getRarityIndex } from "./rarity.js";
-import { damagePlayer } from "./player.js";
+import { applyPlayerKnockback, damagePlayer } from "./player.js";
 import { onSlimeDefeat } from "./slime.js";
 import { tryStartUndead, updateZombie } from "./zombie.js";
 import { isWitchCasting, updateWitch } from "./witch.js";
@@ -13,7 +15,9 @@ export const TYPE_BASE = {
   zombie: { hp: 80, contact: 12, speed: 1.2, size: 26, exp: 20 },
   witch: { hp: 55, contact: 5, speed: 1.3, size: 24, exp: 28 },
   bat: { hp: 22, contact: 6, speed: 2.35, size: 16, exp: 16 },
-  golem: { hp: 140, contact: 16, speed: 0.72, size: 34, exp: 36 }
+  golem: { hp: 140, contact: 16, speed: 0.72, size: 34, exp: 36 },
+  dracula: { hp: 90, contact: 14, speed: 1.5, size: 26, exp: 32 },
+  leafbug: { hp: 18, contact: 5, speed: 2.8, size: 14, exp: 14 }
 };
 
 let nextId = 1;
@@ -51,7 +55,9 @@ export function createMonster(type, x, y, rarity) {
     dashTimer: 0.4 + Math.random(),
     dashing: 0,
     dashX: 0,
-    dashY: 0
+    dashY: 0,
+    attackTimer: 0.3 + Math.random() * 0.4,
+    ephemeral: false
   };
 }
 
@@ -95,17 +101,21 @@ function resolveDefeat(monster, player, onResolved) {
   } else if (monster.type === "witch") {
     result = { exp: monster.expReward, drop: "potion" };
   } else if (monster.type === "zombie") {
-    result = { exp: monster.expReward, drop: "fang" };
+    result = { exp: monster.expReward, drop: "head" };
   } else if (monster.type === "bat") {
     result = { exp: monster.expReward, drop: "dart" };
   } else if (monster.type === "golem") {
     result = { exp: monster.expReward, drop: "boulder" };
+  } else if (monster.type === "dracula") {
+    result = { exp: monster.expReward, drop: "fang" };
+  } else if (monster.type === "leafbug") {
+    result = { exp: monster.expReward, drop: "stick" };
   }
 
   onResolved(monster, result);
 }
 
-export function updateMonsters(player, dt, onResolved) {
+export function updateMonsters(player, dt, onResolved, playerSafe = false) {
   for (const monster of monsters) {
     if (monster.finished && !monster.undead) {
       continue;
@@ -136,6 +146,10 @@ export function updateMonsters(player, dt, onResolved) {
       continue;
     }
 
+    if (playerSafe) {
+      continue;
+    }
+
     if (monster.type === "witch") {
       updateWitch(monster, player, dt);
     }
@@ -161,6 +175,23 @@ export function updateMonsters(player, dt, onResolved) {
         }
       } else if (monster.type === "golem") {
         updateGolem(monster, dt);
+      } else if (monster.type === "dracula") {
+        const lunge = updateDracula(monster, player, dt);
+        if (lunge) {
+          dirX = lunge.dirX;
+          dirY = lunge.dirY;
+          speedMul = lunge.extraSpeed;
+        }
+      } else if (monster.type === "leafbug") {
+        const zig = updateLeafbug(monster, dt);
+        if (zig) {
+          dirX = dirX * 0.72 + zig.dirX * 0.28;
+          dirY = dirY * 0.72 + zig.dirY * 0.28;
+          const mixed = Math.hypot(dirX, dirY) || 1;
+          dirX /= mixed;
+          dirY /= mixed;
+          speedMul = zig.extraSpeed;
+        }
       }
 
       if (distance > 1 || speedMul > 1) {
@@ -176,7 +207,15 @@ export function updateMonsters(player, dt, onResolved) {
       }
 
       const after = Math.hypot(player.x - monster.x, player.y - monster.y);
-      if (after < player.size + monster.size) {
+      if (monster.type === "zombie") {
+        monster.attackTimer = (monster.attackTimer || 0) - dt;
+        const reach = player.size + monster.size + ZOMBIE_SWING_EXTRA;
+        if (after < reach && monster.attackTimer <= 0) {
+          monster.attackTimer = ZOMBIE_SWING_COOLDOWN;
+          damagePlayer(player, monster.contactDamage * 0.7);
+          applyPlayerKnockback(player, monster.x, monster.y, ZOMBIE_KNOCKBACK);
+        }
+      } else if (after < player.size + monster.size) {
         damagePlayer(player, monster.contactDamage * dt);
       }
     }

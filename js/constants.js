@@ -27,7 +27,9 @@ export const ITEM_RELOAD = {
   mucus: 1.2,
   potion: 2.4,
   dart: 0.28,
-  boulder: 2.3
+  boulder: 2.3,
+  head: 0.85,
+  stick: 0.5
 };
 
 export const ITEM_RANGE = {
@@ -35,8 +37,16 @@ export const ITEM_RANGE = {
   mucus: 90,
   potion: 130,
   dart: 95,
-  boulder: 70
+  boulder: 70,
+  head: 110,
+  stick: 80
 };
+
+export const PORTAL_RADIUS = 44;
+export const ZOMBIE_SWING_EXTRA = 18;
+export const ZOMBIE_SWING_COOLDOWN = 0.9;
+export const ZOMBIE_KNOCKBACK = 28;
+export const HEAD_KNOCKBACK = 22;
 
 export const ACTIVE_RADIUS = 800;
 export const FUSION_COUNT = 5;

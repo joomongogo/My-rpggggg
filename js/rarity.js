@@ -112,18 +112,19 @@ export function getHigherRarity(rarity) {
   return RARITY_ORDER[index + 1];
 }
 
-export function rarityFromDistance(distance) {
-  for (const name of RARITY_ORDER) {
-    const data = RARITY_DATA[name];
-    if (distance >= data.minDist && distance < data.maxDist) {
-      return name;
-    }
+export function rarityFromDistance(distance, safeRadius = 0, zoneBand = 650) {
+  if (distance < safeRadius) {
+    return "Basic";
   }
-  return "X_";
+  const index = Math.min(
+    RARITY_ORDER.length - 1,
+    Math.max(0, Math.floor((distance - safeRadius) / zoneBand))
+  );
+  return RARITY_ORDER[index];
 }
 
-export function rollZoneRarity(distance) {
-  const base = rarityFromDistance(distance);
+export function rollZoneRarity(distance, safeRadius = 0, zoneBand = 650) {
+  const base = rarityFromDistance(distance, safeRadius, zoneBand);
   const index = getRarityIndex(base);
   const roll = Math.random();
 

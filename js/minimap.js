@@ -1,4 +1,5 @@
-import { MAP_HEIGHT, MAP_WIDTH } from "./constants.js";
+import { getArea } from "./areas.js";
+import { getMapHeight, getMapWidth } from "./map.js";
 import { forEachOpenCell } from "./map.js";
 
 const SIZE = 180;
@@ -7,20 +8,24 @@ const MONSTER_COLORS = {
   zombie: "#8aa05a",
   witch: "#b388ff",
   bat: "#d4c36a",
-  golem: "#c4b8a4"
+  golem: "#c4b8a4",
+  dracula: "#9b1c2e",
+  leafbug: "#b6e05a"
 };
 
 let wallLayer = null;
 
 export function buildMinimap() {
+  const mapWidth = getMapWidth();
+  const mapHeight = getMapHeight();
   wallLayer = document.createElement("canvas");
   wallLayer.width = SIZE;
   wallLayer.height = SIZE;
   const ctx = wallLayer.getContext("2d");
   ctx.fillStyle = "#101810";
   ctx.fillRect(0, 0, SIZE, SIZE);
-  const sx = SIZE / MAP_WIDTH;
-  const sy = SIZE / MAP_HEIGHT;
+  const sx = SIZE / mapWidth;
+  const sy = SIZE / mapHeight;
   ctx.fillStyle = "#2c3d2c";
   forEachOpenCell((x, y, w, h) => {
     ctx.fillRect(x * sx, y * sy, Math.max(1, w * sx), Math.max(1, h * sy));
@@ -40,10 +45,12 @@ export function drawMinimap(player, monsterList) {
     buildMinimap();
   }
 
+  const mapWidth = getMapWidth();
+  const mapHeight = getMapHeight();
   const ctx = canvas.getContext("2d");
   ctx.drawImage(wallLayer, 0, 0);
-  const sx = SIZE / MAP_WIDTH;
-  const sy = SIZE / MAP_HEIGHT;
+  const sx = SIZE / mapWidth;
+  const sy = SIZE / mapHeight;
 
   for (const monster of monsterList) {
     if (monster.finished && !monster.undead) {
@@ -66,4 +73,12 @@ export function drawMinimap(player, monsterList) {
   ctx.strokeStyle = "#d8ecff";
   ctx.lineWidth = 1.5;
   ctx.stroke();
+
+  const area = getArea();
+  for (const portal of area.portals || []) {
+    ctx.fillStyle = portal.color || "#fff";
+    ctx.beginPath();
+    ctx.arc(portal.x * sx, portal.y * sy, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }

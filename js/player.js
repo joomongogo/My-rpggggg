@@ -7,18 +7,16 @@ import {
   PLAYER_RESPAWN_HP,
   PLAYER_RESPAWN_TIME,
   PLAYER_SIZE,
-  PLAYER_SPEED,
-  SPAWN_X,
-  SPAWN_Y
+  PLAYER_SPEED
 } from "./constants.js";
-import { createLoadout, giveStarterLoadout } from "./loadout.js";
+import { createLoadout, giveStarterLoadout, replaceInventory } from "./loadout.js";
 import { moveWithSlide } from "./map.js";
 import { applyProgress } from "./save.js";
 
 export function createPlayer() {
   const player = {
-    x: SPAWN_X,
-    y: SPAWN_Y,
+    x: 2000,
+    y: 2000,
     size: PLAYER_SIZE,
     speed: PLAYER_SPEED,
     hp: PLAYER_MAX_HP,
@@ -29,13 +27,45 @@ export function createPlayer() {
     damage: PLAYER_DAMAGE,
     loadout: createLoadout(),
     hurtTimer: 0,
-    respawnTimer: 0
+    respawnTimer: 0,
+    knockX: 0,
+    knockY: 0
   };
 
   if (!applyProgress(player)) {
     giveStarterLoadout(player);
+  } else if (player.hp <= 0) {
+    player.hp = player.maxHp;
+    player.respawnTimer = 0;
   }
   return player;
+}
+
+export function resetPlayer(player) {
+  player.level = 1;
+  player.exp = 0;
+  player.maxExp = PLAYER_MAX_EXP;
+  player.maxHp = PLAYER_MAX_HP;
+  player.hp = PLAYER_MAX_HP;
+  player.damage = PLAYER_DAMAGE;
+  player.hurtTimer = 0;
+  player.respawnTimer = 0;
+  player.knockX = 0;
+  player.knockY = 0;
+  for (const slot of player.loadout) {
+    slot.item = null;
+    slot.cooldown = 0;
+  }
+  replaceInventory([]);
+  giveStarterLoadout(player);
+}
+
+export function applyPlayerKnockback(player, fromX, fromY, force) {
+  const dx = player.x - fromX;
+  const dy = player.y - fromY;
+  const len = Math.hypot(dx, dy) || 1;
+  player.knockX += (dx / len) * force;
+  player.knockY += (dy / len) * force;
 }
 
 export function updatePlayer(player, move, dt) {
@@ -55,12 +85,18 @@ export function updatePlayer(player, move, dt) {
   const next = moveWithSlide(
     player.x,
     player.y,
-    move.x * frameSpeed,
-    move.y * frameSpeed,
+    move.x * frameSpeed + player.knockX,
+    move.y * frameSpeed + player.knockY,
     player.size
   );
   player.x = next.x;
   player.y = next.y;
+  player.knockX *= Math.max(0, 1 - dt * 8);
+  player.knockY *= Math.max(0, 1 - dt * 8);
+  if (Math.hypot(player.knockX, player.knockY) < 0.4) {
+    player.knockX = 0;
+    player.knockY = 0;
+  }
 }
 
 export function addExperience(player, amount) {
@@ -102,17 +138,17 @@ export function damagePlayer(player, amount) {
   }
 }
 
-export function respawnPlayer(player) {
-  player.x = SPAWN_X;
-  player.y = SPAWN_Y;
+export function respawnPlayer(player, x, y) {
   player.hp = Math.max(1, Math.floor(player.maxHp * PLAYER_RESPAWN_HP));
   player.hurtTimer = PLAYER_REGEN_DELAY;
   player.respawnTimer = 0;
+  player.knockX = 0;
+  player.knockY = 0;
+  if (Number.isFinite(x) && Number.isFinite(y)) {
+    player.x = x;
+    player.y = y;
+  }
   console.log("[player] respawn");
 }
 
-export function maybeRespawn(player) {
-  if (player.hp <= 0 && player.respawnTimer <= 0) {
-    respawnPlayer(player);
-  }
-}
+export function maybeRespawn() {}

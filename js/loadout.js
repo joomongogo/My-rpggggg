@@ -103,6 +103,10 @@ export function equipFromInventory(player, type, rarity) {
   return false;
 }
 
+export function countEquippedOfType(player, type) {
+  return player.loadout.filter((slot) => slot.item && slot.item.type === type).length;
+}
+
 export function tapSlot(player, index) {
   const slot = player.loadout[index];
   if (!slot) {

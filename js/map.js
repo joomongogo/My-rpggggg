@@ -1,17 +1,37 @@
-import { MAP_HEIGHT, MAP_WIDTH, SAFE_SPAWN_RADIUS, SPAWN_X, SPAWN_Y } from "./constants.js";
+const CELL = 160;
 
-export const CELL = 160;
-export const COLS = MAP_WIDTH / CELL;
-export const ROWS = MAP_HEIGHT / CELL;
+let mapWidth = 12000;
+let mapHeight = 12000;
+let cols = mapWidth / CELL;
+let rows = mapHeight / CELL;
+let open = new Uint8Array(cols * rows);
 
-const open = new Uint8Array(COLS * ROWS);
+export function getCellSize() {
+  return CELL;
+}
+
+export function getMapWidth() {
+  return mapWidth;
+}
+
+export function getMapHeight() {
+  return mapHeight;
+}
+
+export function getCols() {
+  return cols;
+}
+
+export function getRows() {
+  return rows;
+}
 
 function indexOf(c, r) {
-  return r * COLS + c;
+  return r * cols + c;
 }
 
 function inGrid(c, r) {
-  return c >= 0 && r >= 0 && c < COLS && r < ROWS;
+  return c >= 0 && r >= 0 && c < cols && r < rows;
 }
 
 function setOpen(c, r, value) {
@@ -41,8 +61,8 @@ function carveDisk(c, r, radius) {
 
 function cellAt(x, y) {
   return {
-    c: Math.max(0, Math.min(COLS - 1, Math.floor(x / CELL))),
-    r: Math.max(0, Math.min(ROWS - 1, Math.floor(y / CELL)))
+    c: Math.max(0, Math.min(cols - 1, Math.floor(x / CELL))),
+    r: Math.max(0, Math.min(rows - 1, Math.floor(y / CELL)))
   };
 }
 
@@ -50,7 +70,7 @@ function carveLine(c0, r0, c1, r1, width) {
   let c = c0;
   let r = r0;
   carveDisk(c, r, width);
-  let guard = COLS * ROWS;
+  let guard = cols * rows;
   while ((c !== c1 || r !== r1) && guard-- > 0) {
     const dc = c1 - c;
     const dr = r1 - r;
@@ -67,9 +87,9 @@ function cellCenter(c, r) {
   return { x: (c + 0.5) * CELL, y: (r + 0.5) * CELL };
 }
 
-function pruneUnreachable() {
-  const spawn = cellAt(SPAWN_X, SPAWN_Y);
-  const seen = new Uint8Array(COLS * ROWS);
+function pruneUnreachable(spawnX, spawnY) {
+  const spawn = cellAt(spawnX, spawnY);
+  const seen = new Uint8Array(cols * rows);
   const queue = [];
   if (isCellOpen(spawn.c, spawn.r)) {
     seen[indexOf(spawn.c, spawn.r)] = 1;
@@ -103,47 +123,61 @@ function pruneUnreachable() {
   }
 }
 
-export function generateMap() {
-  open.fill(0);
+function generateOpenField() {
+  open.fill(1);
+}
 
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
+function generateArena() {
+  open.fill(0);
+  for (let r = 2; r < rows - 2; r++) {
+    for (let c = 2; c < cols - 2; c++) {
+      carveCell(c, r);
+    }
+  }
+}
+
+function generateWinding(config) {
+  open.fill(0);
+  const spawnX = config.spawnX;
+  const spawnY = config.spawnY;
+  const safe = config.safeRadius;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       const pos = cellCenter(c, r);
-      if (Math.hypot(pos.x - SPAWN_X, pos.y - SPAWN_Y) <= SAFE_SPAWN_RADIUS + CELL) {
+      if (Math.hypot(pos.x - spawnX, pos.y - spawnY) <= safe + CELL) {
         carveCell(c, r);
       }
     }
   }
 
   const width = 2;
-  const maxDist = 5800;
+  const maxDist = Math.min(spawnX, spawnY, mapWidth - spawnX, mapHeight - spawnY) - CELL * 2;
   const arms = 7;
-  const hub = cellAt(SPAWN_X, SPAWN_Y);
+  const hub = cellAt(spawnX, spawnY);
 
   for (let i = 0; i < arms; i++) {
     let angle = (i / arms) * Math.PI * 2 + (Math.random() - 0.5) * 0.2;
-    let dist = SAFE_SPAWN_RADIUS;
-    let prev = cellAt(SPAWN_X + Math.cos(angle) * dist, SPAWN_Y + Math.sin(angle) * dist);
+    let dist = safe;
+    let prev = cellAt(spawnX + Math.cos(angle) * dist, spawnY + Math.sin(angle) * dist);
     carveLine(hub.c, hub.r, prev.c, prev.r, width);
 
     while (dist < maxDist) {
       dist += CELL * 0.9;
       angle += (Math.random() - 0.5) * 0.32;
-      const next = cellAt(
-        SPAWN_X + Math.cos(angle) * dist,
-        SPAWN_Y + Math.sin(angle) * dist
-      );
+      const next = cellAt(spawnX + Math.cos(angle) * dist, spawnY + Math.sin(angle) * dist);
       carveLine(prev.c, prev.r, next.c, next.r, width);
       prev = next;
     }
   }
 
-  for (const ring of [1300, 2600, 3900, 5200]) {
+  const rings = [safe + 200, safe * 2, safe * 3, safe * 4].filter((ring) => ring < maxDist);
+  for (const ring of rings) {
     const steps = Math.max(24, Math.floor((Math.PI * 2 * ring) / CELL));
     let prev = null;
     for (let s = 0; s <= steps; s++) {
       const a = (s / steps) * Math.PI * 2;
-      const cell = cellAt(SPAWN_X + Math.cos(a) * ring, SPAWN_Y + Math.sin(a) * ring);
+      const cell = cellAt(spawnX + Math.cos(a) * ring, spawnY + Math.sin(a) * ring);
       if (prev) {
         carveLine(prev.c, prev.r, cell.c, cell.r, width);
       }
@@ -151,12 +185,29 @@ export function generateMap() {
     }
   }
 
-  pruneUnreachable();
-  console.log("[map] generated");
+  pruneUnreachable(spawnX, spawnY);
+}
+
+export function generateMap(config) {
+  mapWidth = config.width;
+  mapHeight = config.height;
+  cols = Math.floor(mapWidth / CELL);
+  rows = Math.floor(mapHeight / CELL);
+  open = new Uint8Array(cols * rows);
+
+  if (config.style === "hub") {
+    generateOpenField();
+  } else if (config.style === "arena") {
+    generateArena();
+  } else {
+    generateWinding(config);
+  }
+
+  console.log("[map] generated", config.id, mapWidth, mapHeight);
 }
 
 export function isBlocked(x, y, radius) {
-  if (x - radius < 0 || y - radius < 0 || x + radius > MAP_WIDTH || y + radius > MAP_HEIGHT) {
+  if (x - radius < 0 || y - radius < 0 || x + radius > mapWidth || y + radius > mapHeight) {
     return true;
   }
 
@@ -196,9 +247,9 @@ export function moveWithSlide(x, y, dx, dy, radius) {
 
 export function forEachWallInView(minX, minY, maxX, maxY, fn) {
   const minC = Math.max(0, Math.floor(minX / CELL));
-  const maxC = Math.min(COLS - 1, Math.floor(maxX / CELL));
+  const maxC = Math.min(cols - 1, Math.floor(maxX / CELL));
   const minR = Math.max(0, Math.floor(minY / CELL));
-  const maxR = Math.min(ROWS - 1, Math.floor(maxY / CELL));
+  const maxR = Math.min(rows - 1, Math.floor(maxY / CELL));
 
   for (let r = minR; r <= maxR; r++) {
     for (let c = minC; c <= maxC; c++) {
@@ -210,8 +261,8 @@ export function forEachWallInView(minX, minY, maxX, maxY, fn) {
 }
 
 export function forEachOpenCell(fn) {
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       if (isCellOpen(c, r)) {
         fn(c * CELL, r * CELL, CELL, CELL);
       }

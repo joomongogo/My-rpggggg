@@ -33,38 +33,94 @@ export function drawItemShape(ctx, x, y, size, item, time, ready = true) {
   ctx.fillStyle = ready
     ? createRarityPaint(ctx, x, y, size, item.rarity, time)
     : "#555";
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.45)";
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+  ctx.lineWidth = Math.max(1, size * 0.12);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
 
   if (item.type === "fang") {
     ctx.beginPath();
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x + size * 0.85, y + size * 0.75);
-    ctx.lineTo(x - size * 0.85, y + size * 0.75);
+    ctx.moveTo(x - size * 0.22, y - size * 1.05);
+    ctx.quadraticCurveTo(x + size * 0.55, y - size * 0.15, x + size * 0.18, y + size);
+    ctx.quadraticCurveTo(x - size * 0.05, y + size * 0.15, x - size * 0.55, y - size * 0.2);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+  } else if (item.type === "mucus") {
+    ctx.beginPath();
+    ctx.moveTo(x, y - size * 1.05);
+    ctx.quadraticCurveTo(x + size * 0.95, y - size * 0.1, x, y + size * 0.95);
+    ctx.quadraticCurveTo(x - size * 0.95, y - size * 0.1, x, y - size * 1.05);
+    ctx.fill();
+    ctx.stroke();
   } else if (item.type === "potion") {
-    ctx.fillRect(x - size * 0.8, y - size * 0.8, size * 1.6, size * 1.6);
-    ctx.strokeRect(x - size * 0.8, y - size * 0.8, size * 1.6, size * 1.6);
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.28, y - size * 1.05);
+    ctx.lineTo(x + size * 0.28, y - size * 1.05);
+    ctx.lineTo(x + size * 0.28, y - size * 0.55);
+    ctx.lineTo(x + size * 0.72, y + size * 0.15);
+    ctx.quadraticCurveTo(x, y + size * 1.2, x - size * 0.72, y + size * 0.15);
+    ctx.lineTo(x - size * 0.28, y - size * 0.55);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.fillRect(x - size * 0.18, y - size * 1.08, size * 0.36, size * 0.18);
   } else if (item.type === "dart") {
     ctx.beginPath();
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x + size * 0.7, y);
-    ctx.lineTo(x, y + size);
-    ctx.lineTo(x - size * 0.7, y);
+    ctx.moveTo(x, y - size * 1.1);
+    ctx.lineTo(x + size * 0.22, y - size * 0.35);
+    ctx.lineTo(x + size * 0.12, y + size * 0.55);
+    ctx.lineTo(x - size * 0.12, y + size * 0.55);
+    ctx.lineTo(x - size * 0.22, y - size * 0.35);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.42, y + size * 0.55);
+    ctx.lineTo(x, y + size * 0.22);
+    ctx.lineTo(x + size * 0.42, y + size * 0.55);
+    ctx.lineTo(x, y + size * 0.95);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
   } else if (item.type === "boulder") {
     ctx.beginPath();
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x + size * 0.86, y - size * 0.45);
-    ctx.lineTo(x + size * 0.86, y + size * 0.45);
-    ctx.lineTo(x, y + size);
-    ctx.lineTo(x - size * 0.86, y + size * 0.45);
-    ctx.lineTo(x - size * 0.86, y - size * 0.45);
+    ctx.moveTo(x - size * 0.2, y - size);
+    ctx.lineTo(x + size * 0.55, y - size * 0.7);
+    ctx.lineTo(x + size, y - size * 0.05);
+    ctx.lineTo(x + size * 0.45, y + size * 0.85);
+    ctx.lineTo(x - size * 0.55, y + size * 0.7);
+    ctx.lineTo(x - size * 0.95, y - size * 0.1);
     ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (item.type === "head") {
+    ctx.beginPath();
+    ctx.arc(x, y - size * 0.08, size * 0.92, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "rgba(20, 12, 8, 0.55)";
+    ctx.beginPath();
+    ctx.ellipse(x - size * 0.32, y - size * 0.18, size * 0.18, size * 0.22, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + size * 0.32, y - size * 0.18, size * 0.18, size * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.28, y + size * 0.28);
+    ctx.lineTo(x - size * 0.12, y + size * 0.55);
+    ctx.lineTo(x + size * 0.12, y + size * 0.55);
+    ctx.lineTo(x + size * 0.28, y + size * 0.28);
+    ctx.closePath();
+    ctx.fill();
+  } else if (item.type === "stick") {
+    ctx.translate(x, y);
+    ctx.rotate(-0.7);
+    ctx.beginPath();
+    ctx.rect(-size * 0.18, -size * 1.1, size * 0.36, size * 2.2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(0, -size * 0.95, size * 0.32, size * 0.28, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   } else {
@@ -166,6 +222,56 @@ function drawGolem(ctx, screen, monster, player) {
   drawEyes(ctx, screen.x, screen.y - s * 0.1, s * 0.85, player.x - monster.x, player.y - monster.y);
 }
 
+function drawDracula(ctx, screen, monster, player) {
+  const s = monster.size;
+  ctx.fillStyle = monster.dashing > 0 ? "#c62828" : "#6b1020";
+  ctx.beginPath();
+  ctx.moveTo(screen.x - s * 1.15, screen.y + s * 0.85);
+  ctx.lineTo(screen.x, screen.y - s * 0.2);
+  ctx.lineTo(screen.x + s * 1.15, screen.y + s * 0.85);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(screen.x, screen.y - s * 0.1, s * 0.72, s * 0.95, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#3a0c14";
+  ctx.fill();
+  ctx.fillStyle = "#f3d6d0";
+  ctx.beginPath();
+  ctx.moveTo(screen.x - s * 0.12, screen.y + s * 0.12);
+  ctx.lineTo(screen.x - s * 0.04, screen.y + s * 0.38);
+  ctx.lineTo(screen.x + s * 0.05, screen.y + s * 0.12);
+  ctx.moveTo(screen.x + s * 0.12, screen.y + s * 0.12);
+  ctx.lineTo(screen.x + s * 0.04, screen.y + s * 0.38);
+  ctx.lineTo(screen.x - s * 0.05, screen.y + s * 0.12);
+  ctx.fill();
+  drawEyes(ctx, screen.x, screen.y - s * 0.18, s * 0.85, player.x - monster.x, player.y - monster.y);
+}
+
+function drawLeafbug(ctx, screen, monster, player) {
+  const s = monster.size;
+  const flap = 0.55 + Math.sin(performance.now() / 70 + monster.id) * 0.18;
+  ctx.fillStyle = "#7cb342";
+  ctx.beginPath();
+  ctx.ellipse(screen.x - s * 0.85, screen.y, s * 0.9, s * flap, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(screen.x + s * 0.85, screen.y, s * 0.9, s * flap, 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#c5e86a";
+  ctx.beginPath();
+  ctx.ellipse(screen.x, screen.y, s * 0.85, s * 0.55, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#4a6b18";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(screen.x - s * 0.2, screen.y - s * 0.5);
+  ctx.lineTo(screen.x - s * 0.45, screen.y - s * 0.95);
+  ctx.moveTo(screen.x + s * 0.2, screen.y - s * 0.5);
+  ctx.lineTo(screen.x + s * 0.45, screen.y - s * 0.95);
+  ctx.stroke();
+  drawEyes(ctx, screen.x, screen.y, s * 0.7, player.x - monster.x, player.y - monster.y);
+}
+
 function drawWitch(ctx, screen, monster, player) {
   ctx.beginPath();
   ctx.arc(screen.x, screen.y, monster.size, 0, Math.PI * 2);
@@ -232,6 +338,10 @@ export function drawMonsters(ctx, canvas, monsterList, player, time) {
       drawBat(ctx, screen, monster, player);
     } else if (monster.type === "golem") {
       drawGolem(ctx, screen, monster, player);
+    } else if (monster.type === "dracula") {
+      drawDracula(ctx, screen, monster, player);
+    } else if (monster.type === "leafbug") {
+      drawLeafbug(ctx, screen, monster, player);
     } else {
       drawWitch(ctx, screen, monster, player);
     }
@@ -326,6 +436,12 @@ export function drawEffects(ctx, canvas) {
       ctx.strokeStyle = "#e8dcc8";
     } else if (effect.type === "dart") {
       ctx.strokeStyle = "#f0e08a";
+    } else if (effect.type === "head") {
+      ctx.fillStyle = "rgba(210, 170, 130, 0.28)";
+      ctx.fill();
+      ctx.strokeStyle = "#f0d2b4";
+    } else if (effect.type === "stick") {
+      ctx.strokeStyle = "#c4a06a";
     } else {
       ctx.strokeStyle = "#ffe8e0";
     }

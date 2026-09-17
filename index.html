@@ -20,6 +20,7 @@
   <div id="hud">
     <div id="hud-panel">
       <div id="hud-level">LEVEL 1</div>
+      <div id="hud-area">Town</div>
       <div class="bar hp-bar">
         <div id="hp-fill" class="bar-fill"></div>
         <span id="hp-text">HP 100 / 100</span>
@@ -43,6 +44,9 @@
 
   <canvas id="minimap" width="180" height="180"></canvas>
 
+  <div id="rush-timer"></div>
+
+  <button id="reset-button" type="button">Reset</button>
   <button id="bag-button" type="button">Bag 0</button>
   <button id="fuse-button" type="button">Fuse</button>
   <button id="dex-button" type="button">Dex</button>
@@ -95,7 +99,30 @@
 
   <div id="game-over">
     <div class="game-over-title">YOU DIED</div>
-    <div class="game-over-hint">Respawning in 3</div>
+    <div class="game-over-hint">Returning to town in 3</div>
+  </div>
+
+  <div id="item-tooltip"></div>
+  <div id="rush-result"></div>
+
+  <div id="rush-modal">
+    <div class="modal-card">
+      <div class="modal-title">Monster Rush</div>
+      <div class="modal-body">Survive 60 seconds. Drops, EXP, and dex kills count. Death ends the rush.</div>
+      <div class="modal-actions" id="rush-choices"></div>
+      <button id="rush-cancel" type="button">Cancel</button>
+    </div>
+  </div>
+
+  <div id="confirm-modal">
+    <div class="modal-card">
+      <div class="modal-title">Reset progress?</div>
+      <div class="modal-body">This clears level, items, loadout, and dex. It cannot be undone.</div>
+      <div class="modal-actions">
+        <button id="confirm-yes" type="button">Reset</button>
+        <button id="confirm-no" type="button">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="js/main.js"></script>

@@ -1,4 +1,4 @@
-import { MAP_HEIGHT, MAP_WIDTH } from "./constants.js";
+import { getMapHeight, getMapWidth } from "./map.js";
 
 export const camera = {
   x: 0,
@@ -6,11 +6,13 @@ export const camera = {
 };
 
 export function updateCamera(player, canvas) {
+  const mapWidth = getMapWidth();
+  const mapHeight = getMapHeight();
   camera.x = player.x - canvas.width / 2;
   camera.y = player.y - canvas.height / 2;
 
-  camera.x = Math.max(0, Math.min(MAP_WIDTH - canvas.width, camera.x));
-  camera.y = Math.max(0, Math.min(MAP_HEIGHT - canvas.height, camera.y));
+  camera.x = Math.max(0, Math.min(Math.max(0, mapWidth - canvas.width), camera.x));
+  camera.y = Math.max(0, Math.min(Math.max(0, mapHeight - canvas.height), camera.y));
 }
 
 export function worldToScreen(x, y) {

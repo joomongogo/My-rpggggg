@@ -118,6 +118,135 @@ body {
   font-weight: bold;
 }
 
+#hud-area {
+  font-size: 13px;
+  color: #d8ecff;
+  margin-bottom: 8px;
+}
+
+#reset-button {
+  position: fixed;
+  top: 16px;
+  left: 292px;
+  z-index: 6;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#rush-timer {
+  display: none;
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  padding: 8px 16px;
+  background: rgba(80, 16, 16, 0.86);
+  border: 2px solid #e05a4a;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+}
+
+#rush-timer.visible {
+  display: block;
+}
+
+#item-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 30;
+  max-width: 220px;
+  padding: 8px 10px;
+  background: rgba(8, 8, 8, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+#item-tooltip.visible {
+  display: block;
+}
+
+#rush-result {
+  display: none;
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid #f4c542;
+  font-weight: bold;
+}
+
+#rush-result.visible {
+  display: block;
+}
+
+#rush-modal,
+#confirm-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  background: rgba(0, 0, 0, 0.62);
+  align-items: center;
+  justify-content: center;
+}
+
+#rush-modal.visible,
+#confirm-modal.visible {
+  display: flex;
+}
+
+.modal-card {
+  width: min(420px, calc(100vw - 32px));
+  padding: 18px;
+  background: #1b1b1b;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.modal-title {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.modal-body {
+  font-size: 14px;
+  color: #ddd;
+  margin-bottom: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.modal-card button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#confirm-yes,
+#rush-choices button {
+  background: rgba(224, 90, 74, 0.25);
+}
+
 #hud-hint,
 #hud-bag {
   font-size: 13px;
@@ -576,5 +705,15 @@ body {
     left: 16px;
     right: 16px;
     width: auto;
+  }
+
+  #reset-button {
+    left: 16px;
+    top: auto;
+    bottom: 132px;
+  }
+
+  #hud-area {
+    font-size: 12px;
   }
 }

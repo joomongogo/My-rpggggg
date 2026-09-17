@@ -8,18 +8,22 @@ export const TYPE_LABEL = {
   zombie: "Zombie",
   witch: "Witch",
   bat: "Bat",
-  golem: "Golem"
+  golem: "Golem",
+  dracula: "Dracula",
+  leafbug: "Leafbug"
 };
 
 export const TYPE_BLURB = {
   slime: "On death, 60% chance to split into two lower-rarity slimes.",
-  zombie: "At 0 HP, stays undead and invincible for 5 seconds.",
+  zombie: "Swings with knockback, then stays undead for 5 seconds.",
   witch: "Casts a delayed ground spell under the player.",
   bat: "Fast and frail. Dashes sideways through corridors.",
-  golem: "Slow, thick, and fills a hallway. Drops a heavy slam."
+  golem: "Slow, thick, and fills a hallway. Drops a heavy slam.",
+  dracula: "Lunges in for a bite. Drops a fang.",
+  leafbug: "Tiny and very fast. Drops a stacking stick."
 };
 
-export const MONSTER_TYPES = ["slime", "zombie", "witch", "bat", "golem"];
+export const MONSTER_TYPES = ["slime", "zombie", "witch", "bat", "golem", "dracula", "leafbug"];
 
 let kills = loadKills();
 
@@ -49,6 +53,15 @@ export function recordKill(type, rarity) {
   kills[key] = (kills[key] || 0) + 1;
   saveKills();
   console.log("[bestiary] kill", key, kills[key]);
+}
+
+export function resetBestiary() {
+  kills = {};
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.log("[bestiary] reset failed");
+  }
 }
 
 export function getKillCount(type, rarity) {

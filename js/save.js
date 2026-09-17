@@ -6,7 +6,7 @@ import { RARITY_ORDER } from "./rarity.js";
 const STORAGE_KEY = "myrpg-save";
 const SAVE_VERSION = 1;
 const DEBOUNCE_MS = 2000;
-const ITEM_TYPES = new Set(["fang", "mucus", "potion", "dart", "boulder"]);
+const ITEM_TYPES = new Set(["fang", "mucus", "potion", "dart", "boulder", "head", "stick"]);
 
 let currentPlayer = null;
 let saveTimer = null;
@@ -122,6 +122,18 @@ export function flushSave() {
     saveTimer = null;
   }
   writeSave(currentPlayer);
+}
+
+export function wipeSave() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.log("[save] wipe failed");
+  }
 }
 
 export function bindSaveFlush(player) {

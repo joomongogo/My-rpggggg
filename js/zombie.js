@@ -29,6 +29,6 @@ export function updateZombie(monster, dt) {
   console.log("[zombie] true death");
   return {
     exp: monster.expReward,
-    drop: "fang"
+    drop: "head"
   };
 }

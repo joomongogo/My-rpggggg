@@ -1,6 +1,28 @@
-import { EFFECT_LIFETIME } from "./constants.js";
+import { EFFECT_LIFETIME, HEAD_KNOCKBACK, PLAYER_DAMAGE } from "./constants.js";
 import { healPlayer } from "./player.js";
+import { countEquippedOfType } from "./loadout.js";
 import { applyMonsterHit, applySlow, canBeHit } from "./monsters.js";
+import { getRarityIndex } from "./rarity.js";
+import { moveWithSlide } from "./map.js";
+
+function scaled(player, amount) {
+  return amount * (player.damage / PLAYER_DAMAGE);
+}
+
+function stickDamage(player, item) {
+  const count = Math.max(1, countEquippedOfType(player, "stick"));
+  const bonus = 2 + getRarityIndex(item.rarity);
+  return scaled(player, 6 + count * bonus);
+}
+
+function knockbackMonster(monster, fromX, fromY, force) {
+  const dx = monster.x - fromX;
+  const dy = monster.y - fromY;
+  const len = Math.hypot(dx, dy) || 1;
+  const next = moveWithSlide(monster.x, monster.y, (dx / len) * force, (dy / len) * force, monster.size * 0.85);
+  monster.x = next.x;
+  monster.y = next.y;
+}
 
 export const effects = [];
 
@@ -42,7 +64,7 @@ function closest(player, targets) {
 }
 
 function fireFang(item, player, target, onResolved, monsterList) {
-  const dealt = applyMonsterHit(target, item.damage, player, onResolved);
+  const dealt = applyMonsterHit(target, scaled(player, item.damage), player, onResolved);
   if (dealt > 0) {
     healPlayer(player, dealt * item.lifesteal);
     addEffect({
@@ -55,7 +77,7 @@ function fireFang(item, player, target, onResolved, monsterList) {
 }
 
 function fireMucus(item, player, target, onResolved) {
-  const dealt = applyMonsterHit(target, item.damage, player, onResolved);
+  const dealt = applyMonsterHit(target, scaled(player, item.damage), player, onResolved);
   if (dealt > 0 || canBeHit(target)) {
     applySlow(target, item.slow, item.slowDuration);
     addEffect({
@@ -68,8 +90,12 @@ function fireMucus(item, player, target, onResolved) {
 }
 
 function fireBolt(item, target, onResolved, player) {
-  const dealt = applyMonsterHit(target, item.damage, player, onResolved);
+  const amount = item.type === "stick" ? stickDamage(player, item) : scaled(player, item.damage);
+  const dealt = applyMonsterHit(target, amount, player, onResolved);
   if (dealt > 0) {
+    if (item.type === "head") {
+      knockbackMonster(target, player.x, player.y, item.knockback || HEAD_KNOCKBACK);
+    }
     addEffect({
       type: item.type,
       x: target.x,
@@ -92,10 +118,11 @@ function firePotion(item, player, targets, onResolved) {
     radius: item.aoeRadius
   });
 
+  const amount = scaled(player, item.damage);
   for (const target of targets) {
     const dist = Math.hypot(center.x - target.x, center.y - target.y);
     if (dist < item.aoeRadius + target.size) {
-      applyMonsterHit(target, item.damage, player, onResolved);
+      applyMonsterHit(target, amount, player, onResolved);
     }
   }
 }
@@ -143,4 +170,44 @@ export function tickCombat(player, monsterList, dt, onResolved) {
       effects.splice(i, 1);
     }
   }
+}
+
+export function weaponDamage(item, player) {
+  if (!item) {
+    return 0;
+  }
+  if (item.type === "stick") {
+    return stickDamage(player, item);
+  }
+  return scaled(player, item.damage);
+}
+
+export function describeWeapon(item, player) {
+  if (!item) {
+    return ["Empty"];
+  }
+
+  const lines = [`${item.label} · ${item.rarity}`];
+  lines.push(`Damage ${weaponDamage(item, player).toFixed(1)}`);
+  lines.push(`Range ${Math.round(item.range)}`);
+  lines.push(`Reload ${item.reload.toFixed(2)}s`);
+
+  if (item.type === "fang") {
+    lines.push(`Lifesteal ${Math.round((item.lifesteal || 0) * 100)}%`);
+  }
+  if (item.type === "mucus") {
+    lines.push(`Slow ${Math.round((item.slow || 0) * 100)}% for ${(item.slowDuration || 0).toFixed(1)}s`);
+  }
+  if (item.type === "potion") {
+    lines.push(`AoE ${Math.round(item.aoeRadius || 0)}`);
+  }
+  if (item.type === "head") {
+    lines.push(`Knockback ${Math.round(item.knockback || HEAD_KNOCKBACK)}`);
+  }
+  if (item.type === "stick") {
+    const count = Math.max(1, countEquippedOfType(player, "stick"));
+    lines.push(`Stick bonus x${count}`);
+  }
+
+  return lines;
 }

@@ -1,5 +1,6 @@
-import { getAllBestiaryEntries, getTotalKills, TYPE_LABEL } from "./bestiary.js";
+import { getAllBestiaryEntries, getTotalKills, resetBestiary, TYPE_LABEL } from "./bestiary.js";
 import { ACTIVE_RADIUS, FUSION_COUNT } from "./constants.js";
+import { describeWeapon } from "./combat.js";
 import { bindDrag } from "./drag.js";
 import { paintItemIcon } from "./draw.js";
 import { canFuse, fuseItems, getFusionChance } from "./fusion.js";
@@ -8,7 +9,10 @@ import { inventory } from "./loadout.js";
 import { monsters } from "./monsters.js";
 import { getHigherRarity, getRarityClass } from "./rarity.js";
 import { isTouchUiVisible } from "./touch.js";
-import { scheduleSave } from "./save.js";
+import { scheduleSave, wipeSave, writeSave } from "./save.js";
+import { enterArea, getArea } from "./areas.js";
+import { resetPlayer } from "./player.js";
+import { getRushDifficulties, getRushTimeLeft, isRushActive, stopRush } from "./rush.js";
 
 let inventoryOpen = false;
 let fuseOpen = false;
@@ -16,6 +20,10 @@ let dexOpen = false;
 let lastInventoryKey = "";
 let lastFuseKey = "";
 let lastDexKills = -1;
+let boundPlayer = null;
+let uiHooks = {};
+let tooltipHold = 0;
+let resultTimer = 0;
 
 function setBar(fillId, textId, ratio, text) {
   const fill = document.getElementById(fillId);
@@ -44,6 +52,130 @@ function groupInventory() {
     }
   }
   return groups;
+}
+
+function tooltipEl() {
+  return document.getElementById("item-tooltip");
+}
+
+function hideTooltip() {
+  const tip = tooltipEl();
+  if (tip) {
+    tip.classList.remove("visible");
+  }
+}
+
+function placeTooltip(event) {
+  const tip = tooltipEl();
+  if (!tip) {
+    return;
+  }
+  const x = Math.min(window.innerWidth - 220, (event.clientX || 24) + 14);
+  const y = Math.min(window.innerHeight - 160, (event.clientY || 24) + 14);
+  tip.style.left = `${Math.max(8, x)}px`;
+  tip.style.top = `${Math.max(8, y)}px`;
+}
+
+function showTooltip(item, event) {
+  const tip = tooltipEl();
+  if (!tip || !boundPlayer || !item) {
+    return;
+  }
+  tip.innerHTML = describeWeapon(item, boundPlayer).map((line) => `<div>${line}</div>`).join("");
+  tip.classList.add("visible");
+  placeTooltip(event);
+}
+
+function bindItemTooltip(el, getItem) {
+  el.addEventListener("mouseenter", (event) => {
+    const item = getItem();
+    if (item) {
+      showTooltip(item, event);
+    }
+  });
+  el.addEventListener("mousemove", (event) => {
+    if (tooltipEl()?.classList.contains("visible")) {
+      placeTooltip(event);
+    }
+  });
+  el.addEventListener("mouseleave", hideTooltip);
+  el.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse") {
+      return;
+    }
+    window.clearTimeout(tooltipHold);
+    tooltipHold = window.setTimeout(() => {
+      const item = getItem();
+      if (item) {
+        showTooltip(item, event);
+      }
+    }, 450);
+  });
+  el.addEventListener("pointerup", () => {
+    window.clearTimeout(tooltipHold);
+    hideTooltip();
+  });
+  el.addEventListener("pointercancel", () => {
+    window.clearTimeout(tooltipHold);
+    hideTooltip();
+  });
+}
+
+function applyProgressReset(player) {
+  stopRush();
+  closeRushSelect();
+  wipeSave();
+  resetBestiary();
+  resetPlayer(player);
+  enterArea("hub", player);
+  writeSave(player);
+  lastInventoryKey = "";
+  lastFuseKey = "";
+  lastDexKills = -1;
+  if (inventoryOpen) {
+    renderInventory(player);
+  }
+  if (fuseOpen) {
+    renderFuse(player);
+  }
+  if (dexOpen) {
+    renderBestiary();
+  }
+  showRushBanner("Progress reset.");
+}
+
+export function closeRushSelect() {
+  document.getElementById("rush-modal")?.classList.remove("visible");
+}
+
+export function showRushBanner(text) {
+  const el = document.getElementById("rush-result");
+  if (!el) {
+    return;
+  }
+  el.textContent = text;
+  el.classList.add("visible");
+  window.clearTimeout(resultTimer);
+  resultTimer = window.setTimeout(() => {
+    el.classList.remove("visible");
+  }, 2800);
+}
+
+function renderRushChoices(player) {
+  const host = document.getElementById("rush-choices");
+  if (!host) {
+    return;
+  }
+  host.innerHTML = "";
+  for (const diff of getRushDifficulties()) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `${diff.label} · x${diff.hpMult} · ${diff.maxAlive} mobs`;
+    button.addEventListener("click", () => {
+      uiHooks.onChooseRush?.(diff.id, player);
+    });
+    host.appendChild(button);
+  }
 }
 
 function makeIcon(type, rarity, size = 48) {
@@ -79,6 +211,7 @@ function renderInventory() {
     tile.dataset.itemRarity = group.rarity;
     tile.title = `${group.label} ${group.rarity}`;
     tile.appendChild(makeIcon(group.type, group.rarity));
+    bindItemTooltip(tile, () => createItem(group.type, group.rarity));
     if (group.count > 1) {
       const count = document.createElement("span");
       count.className = "item-count";
@@ -118,6 +251,7 @@ function renderFuse(player) {
     fromCount.className = "item-count";
     fromCount.textContent = `x${group.count}`;
     from.appendChild(fromCount);
+    bindItemTooltip(from, () => createItem(group.type, group.rarity));
     row.appendChild(from);
 
     const arrow = document.createElement("div");
@@ -128,6 +262,7 @@ function renderFuse(player) {
     const to = document.createElement("div");
     to.className = `fuse-preview ${getRarityClass(next)}`;
     to.appendChild(makeIcon(group.type, next, 44));
+    bindItemTooltip(to, () => createItem(group.type, next));
     row.appendChild(to);
 
     const fuse = document.createElement("button");
@@ -278,7 +413,10 @@ function syncBossBar(player) {
   }
 }
 
-export function bindUi(player) {
+export function bindUi(player, hooks = {}) {
+  boundPlayer = player;
+  uiHooks = hooks;
+
   bindDrag(player, () => {
     scheduleSave(player);
     if (inventoryOpen) {
@@ -317,6 +455,30 @@ export function bindUi(player) {
     });
   }
 
+  const resetButton = document.getElementById("reset-button");
+  const confirmModal = document.getElementById("confirm-modal");
+  if (resetButton && confirmModal) {
+    resetButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      confirmModal.classList.add("visible");
+    });
+  }
+  document.getElementById("confirm-yes")?.addEventListener("click", () => {
+    confirmModal?.classList.remove("visible");
+    applyProgressReset(player);
+    uiHooks.onResetProgress?.(player);
+  });
+  document.getElementById("confirm-no")?.addEventListener("click", () => {
+    confirmModal?.classList.remove("visible");
+  });
+
+  renderRushChoices(player);
+  document.getElementById("rush-cancel")?.addEventListener("click", closeRushSelect);
+
+  document.querySelectorAll(".slot-button").forEach((button, index) => {
+    bindItemTooltip(button, () => player.loadout[index]?.item);
+  });
+
   document.addEventListener("keydown", (event) => {
     if (event.repeat) {
       return;
@@ -337,6 +499,11 @@ export function bindUi(player) {
       event.preventDefault();
       setDexOpen(!dexOpen);
     }
+    if (key === "escape") {
+      closeRushSelect();
+      confirmModal?.classList.remove("visible");
+      hideTooltip();
+    }
   });
 }
 
@@ -344,6 +511,11 @@ export function syncUi(player) {
   const level = document.getElementById("hud-level");
   if (level) {
     level.textContent = `LEVEL ${player.level}`;
+  }
+
+  const areaLabel = document.getElementById("hud-area");
+  if (areaLabel) {
+    areaLabel.textContent = getArea().label;
   }
 
   setBar(
@@ -435,6 +607,15 @@ export function syncUi(player) {
     overlay.classList.toggle("visible", player.hp <= 0);
   }
   if (hintEl && player.hp <= 0) {
-    hintEl.textContent = `Respawning in ${Math.ceil(player.respawnTimer)}`;
+    hintEl.textContent = `Returning to town in ${Math.ceil(player.respawnTimer)}`;
+  }
+
+  const rushTimer = document.getElementById("rush-timer");
+  if (rushTimer) {
+    const active = isRushActive();
+    rushTimer.classList.toggle("visible", active);
+    if (active) {
+      rushTimer.textContent = `RUSH ${Math.ceil(getRushTimeLeft())}s`;
+    }
   }
 }

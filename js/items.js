@@ -35,6 +35,19 @@ const BASE = {
     label: "Boulder",
     color: "#c4b8a4",
     damage: 38
+  },
+  head: {
+    type: "head",
+    label: "Head",
+    color: "#d9b08c",
+    damage: 14,
+    knockback: 22
+  },
+  stick: {
+    type: "stick",
+    label: "Stick",
+    color: "#8d6e3c",
+    damage: 6
   }
 };
 
@@ -67,6 +80,14 @@ export function createItem(type, rarity) {
     item.aoeRadius = base.aoeRadius * (1 + index * 0.08);
   }
 
+  if (type === "head") {
+    item.knockback = base.knockback + index * 3;
+  }
+
+  if (type === "stick") {
+    item.damage = 6;
+  }
+
   return item;
 }
 
@@ -75,13 +96,19 @@ export function dropTypeForMonster(monsterType) {
     return "mucus";
   }
   if (monsterType === "zombie") {
-    return "fang";
+    return "head";
   }
   if (monsterType === "bat") {
     return "dart";
   }
   if (monsterType === "golem") {
     return "boulder";
+  }
+  if (monsterType === "dracula") {
+    return "fang";
+  }
+  if (monsterType === "leafbug") {
+    return "stick";
   }
   return "potion";
 }
