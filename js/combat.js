@@ -1,4 +1,4 @@
-import { EFFECT_LIFETIME, HEAD_KNOCKBACK, PLAYER_DAMAGE } from "./constants.js";
+import { EFFECT_LIFETIME, HEAD_KNOCKBACK, PLAYER_DAMAGE, PLAYER_REGEN } from "./constants.js";
 import { healPlayer } from "./player.js";
 import { countEquippedOfType } from "./loadout.js";
 import { applyMonsterHit, applySlow, canBeHit } from "./monsters.js";
@@ -9,10 +9,16 @@ function scaled(player, amount) {
   return amount * (player.damage / PLAYER_DAMAGE);
 }
 
+function stickBonusOf(item) {
+  if (item.stickBonus != null) {
+    return item.stickBonus;
+  }
+  return 2 + getRarityIndex(item.rarity) * 2;
+}
+
 function stickDamage(player, item) {
   const count = Math.max(1, countEquippedOfType(player, "stick"));
-  const bonus = 2 + getRarityIndex(item.rarity);
-  return scaled(player, 6 + count * bonus);
+  return scaled(player, 6 + count * stickBonusOf(item));
 }
 
 function knockbackMonster(monster, fromX, fromY, force) {
@@ -66,7 +72,7 @@ function closest(player, targets) {
 function fireFang(item, player, target, onResolved, monsterList) {
   const dealt = applyMonsterHit(target, scaled(player, item.damage), player, onResolved);
   if (dealt > 0) {
-    healPlayer(player, dealt * item.lifesteal);
+    healPlayer(player, dealt * item.lifesteal * ((player.healRate || PLAYER_REGEN) / PLAYER_REGEN));
     addEffect({
       type: "fang",
       x: target.x,
@@ -94,7 +100,12 @@ function fireBolt(item, target, onResolved, player) {
   const dealt = applyMonsterHit(target, amount, player, onResolved);
   if (dealt > 0) {
     if (item.type === "head") {
-      knockbackMonster(target, player.x, player.y, item.knockback || HEAD_KNOCKBACK);
+      knockbackMonster(
+        target,
+        player.x,
+        player.y,
+        (item.knockback || HEAD_KNOCKBACK) * (player.knockbackMult || 1)
+      );
     }
     addEffect({
       type: item.type,
@@ -115,13 +126,14 @@ function firePotion(item, player, targets, onResolved) {
     type: "potion",
     x: center.x,
     y: center.y,
-    radius: item.aoeRadius
+    radius: item.aoeRadius * (player.rangeMult || 1)
   });
 
   const amount = scaled(player, item.damage);
+  const aoe = item.aoeRadius * (player.rangeMult || 1);
   for (const target of targets) {
     const dist = Math.hypot(center.x - target.x, center.y - target.y);
-    if (dist < item.aoeRadius + target.size) {
+    if (dist < aoe + target.size) {
       applyMonsterHit(target, amount, player, onResolved);
     }
   }
@@ -143,7 +155,8 @@ export function tickCombat(player, monsterList, dt, onResolved) {
     }
 
     const item = slot.item;
-    const targets = enemiesInRange(player, monsterList, item.range);
+    const range = item.range * (player.rangeMult || 1);
+    const targets = enemiesInRange(player, monsterList, range);
     if (targets.length === 0) {
       continue;
     }
@@ -161,7 +174,7 @@ export function tickCombat(player, monsterList, dt, onResolved) {
       }
     }
 
-    slot.cooldown = item.reload;
+    slot.cooldown = item.reload * (player.reloadMult || 1);
   }
 
   for (let i = effects.length - 1; i >= 0; i--) {
@@ -189,24 +202,27 @@ export function describeWeapon(item, player) {
 
   const lines = [`${item.label} · ${item.rarity}`];
   lines.push(`Damage ${weaponDamage(item, player).toFixed(1)}`);
-  lines.push(`Range ${Math.round(item.range)}`);
-  lines.push(`Reload ${item.reload.toFixed(2)}s`);
+  lines.push(`Range ${Math.round(item.range * (player.rangeMult || 1))}`);
+  lines.push(`Reload ${(item.reload * (player.reloadMult || 1)).toFixed(2)}s`);
 
   if (item.type === "fang") {
-    lines.push(`Lifesteal ${Math.round((item.lifesteal || 0) * 100)}%`);
+    const heal = (item.lifesteal || 0) * ((player.healRate || PLAYER_REGEN) / PLAYER_REGEN);
+    lines.push(`Lifesteal ${Math.round(heal * 100)}%`);
   }
   if (item.type === "mucus") {
     lines.push(`Slow ${Math.round((item.slow || 0) * 100)}% for ${(item.slowDuration || 0).toFixed(1)}s`);
   }
   if (item.type === "potion") {
-    lines.push(`AoE ${Math.round(item.aoeRadius || 0)}`);
+    lines.push(`AoE ${Math.round(item.aoeRadius * (player.rangeMult || 1))}`);
   }
   if (item.type === "head") {
-    lines.push(`Knockback ${Math.round(item.knockback || HEAD_KNOCKBACK)}`);
+    lines.push(`Knockback ${Math.round((item.knockback || HEAD_KNOCKBACK) * (player.knockbackMult || 1))}`);
   }
   if (item.type === "stick") {
     const count = Math.max(1, countEquippedOfType(player, "stick"));
-    lines.push(`Stick bonus x${count}`);
+    const bonus = stickBonusOf(item);
+    lines.push(`Stick bonus +${bonus} each`);
+    lines.push(`Sticks equipped x${count}`);
   }
 
   return lines;

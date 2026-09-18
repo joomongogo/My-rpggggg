@@ -11,12 +11,13 @@ import { getHigherRarity, getRarityClass } from "./rarity.js";
 import { isTouchUiVisible } from "./touch.js";
 import { scheduleSave, wipeSave, writeSave } from "./save.js";
 import { enterArea, getArea } from "./areas.js";
-import { resetPlayer } from "./player.js";
+import { applyStatChoice, refundStats, resetPlayer, spentStatPoints, STAT_CHOICES } from "./player.js";
 import { getRushDifficulties, getRushTimeLeft, isRushActive, stopRush } from "./rush.js";
 
 let inventoryOpen = false;
 let fuseOpen = false;
 let dexOpen = false;
+let statsOpen = false;
 let lastInventoryKey = "";
 let lastFuseKey = "";
 let lastDexKills = -1;
@@ -24,6 +25,7 @@ let boundPlayer = null;
 let uiHooks = {};
 let tooltipHold = 0;
 let resultTimer = 0;
+let lastStatPoints = -1;
 
 function setBar(fillId, textId, ratio, text) {
   const fill = document.getElementById(fillId);
@@ -132,6 +134,7 @@ function applyProgressReset(player) {
   lastInventoryKey = "";
   lastFuseKey = "";
   lastDexKills = -1;
+  lastStatPoints = -1;
   if (inventoryOpen) {
     renderInventory(player);
   }
@@ -161,6 +164,61 @@ export function showRushBanner(text) {
   }, 2800);
 }
 
+function renderLevelPanel(player) {
+  const panel = document.getElementById("level-panel");
+  const help = document.getElementById("level-help");
+  const current = document.getElementById("level-current");
+  const host = document.getElementById("level-choices");
+  const refund = document.getElementById("level-refund");
+  if (!panel || !host) {
+    return;
+  }
+
+  const points = player.statPoints || 0;
+  const spent = spentStatPoints(player);
+  panel.classList.toggle("visible", statsOpen);
+  if (help) {
+    help.textContent = points > 0 ? `Unspent points: ${points}` : "No unspent points.";
+  }
+  if (current) {
+    current.textContent =
+      `HP ${Math.floor(player.hp)} / ${player.maxHp}` +
+      ` · DMG ${player.damage.toFixed(1)}` +
+      ` · Range x${(player.rangeMult || 1).toFixed(2)}` +
+      ` · Knock x${(player.knockbackMult || 1).toFixed(2)}` +
+      ` · Heal ${(player.healRate || 2).toFixed(2)}/s` +
+      ` · Reload x${(player.reloadMult || 1).toFixed(2)}`;
+  }
+  if (refund) {
+    refund.disabled = spent <= 0;
+  }
+
+  if (host.childElementCount !== STAT_CHOICES.length) {
+    host.innerHTML = "";
+    for (const choice of STAT_CHOICES) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.stat = choice.id;
+      button.innerHTML = `<strong>${choice.label}</strong><div>${choice.detail}</div>`;
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (applyStatChoice(player, choice.id)) {
+          scheduleSave(player);
+          renderLevelPanel(player);
+          syncUi(player);
+        }
+      });
+      host.appendChild(button);
+    }
+  }
+
+  host.querySelectorAll("button").forEach((button) => {
+    button.disabled = points <= 0;
+  });
+  lastStatPoints = points;
+}
+
 function renderRushChoices(player) {
   const host = document.getElementById("rush-choices");
   if (!host) {
@@ -170,7 +228,8 @@ function renderRushChoices(player) {
   for (const diff of getRushDifficulties()) {
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = `${diff.label} · x${diff.hpMult} · ${diff.maxAlive} mobs`;
+    button.className = getRarityClass(diff.rarity);
+    button.textContent = `${diff.label} · ${diff.maxAlive} ${diff.rarity}`;
     button.addEventListener("click", () => {
       uiHooks.onChooseRush?.(diff.id, player);
     });
@@ -308,12 +367,15 @@ function closeSidePanels() {
   inventoryOpen = false;
   fuseOpen = false;
   dexOpen = false;
+  statsOpen = false;
   document.getElementById("inventory-panel")?.classList.remove("visible");
   document.getElementById("fuse-panel")?.classList.remove("visible");
   document.getElementById("bestiary-panel")?.classList.remove("visible");
+  document.getElementById("level-panel")?.classList.remove("visible");
   document.getElementById("bag-button")?.classList.remove("open");
   document.getElementById("fuse-button")?.classList.remove("open");
   document.getElementById("dex-button")?.classList.remove("open");
+  document.getElementById("stats-button")?.classList.remove("open");
 }
 
 function setInventoryOpen(open, player) {
@@ -345,6 +407,22 @@ function setFuseOpen(open, player) {
   }
   if (fuseOpen) {
     renderFuse(player);
+  }
+}
+
+function setStatsOpen(open, player) {
+  closeSidePanels();
+  statsOpen = open;
+  const panel = document.getElementById("level-panel");
+  const button = document.getElementById("stats-button");
+  if (panel) {
+    panel.classList.toggle("visible", statsOpen);
+  }
+  if (button) {
+    button.classList.toggle("open", statsOpen);
+  }
+  if (statsOpen) {
+    renderLevelPanel(player);
   }
 }
 
@@ -455,6 +533,27 @@ export function bindUi(player, hooks = {}) {
     });
   }
 
+  const statsButton = document.getElementById("stats-button");
+  if (statsButton) {
+    statsButton.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setStatsOpen(!statsOpen, player);
+    });
+  }
+
+  document.getElementById("level-refund")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (spentStatPoints(player) <= 0) {
+      return;
+    }
+    refundStats(player);
+    scheduleSave(player);
+    setStatsOpen(true, player);
+    syncUi(player);
+  });
+
   const resetButton = document.getElementById("reset-button");
   const confirmModal = document.getElementById("confirm-modal");
   if (resetButton && confirmModal) {
@@ -473,6 +572,7 @@ export function bindUi(player, hooks = {}) {
   });
 
   renderRushChoices(player);
+  renderLevelPanel(player);
   document.getElementById("rush-cancel")?.addEventListener("click", closeRushSelect);
 
   document.querySelectorAll(".slot-button").forEach((button, index) => {
@@ -498,6 +598,10 @@ export function bindUi(player, hooks = {}) {
     if (key === "b") {
       event.preventDefault();
       setDexOpen(!dexOpen);
+    }
+    if (key === "t") {
+      event.preventDefault();
+      setStatsOpen(!statsOpen, player);
     }
     if (key === "escape") {
       closeRushSelect();
@@ -534,8 +638,8 @@ export function syncUi(player) {
   const hint = document.getElementById("hud-hint");
   if (hint) {
     hint.textContent = isTouchUiVisible()
-      ? "Move: stick / Bag / Fuse / Dex"
-      : "Move: WASD / Bag: E / Fuse: F / Dex: B";
+      ? "Move: stick / Bag / Fuse / Stats / Dex"
+      : "Move: WASD / Bag: E / Fuse: F / Stats: T / Dex: B";
   }
 
   const bag = document.getElementById("hud-bag");
@@ -585,7 +689,8 @@ export function syncUi(player) {
     name.textContent = slot.item.label;
     meta.textContent = slot.item.rarity;
     button.style.borderColor = "";
-    const ratio = slot.item.reload <= 0 ? 1 : 1 - slot.cooldown / slot.item.reload;
+    const reload = slot.item.reload * (player.reloadMult || 1);
+    const ratio = reload <= 0 ? 1 : 1 - slot.cooldown / reload;
     if (cool) {
       cool.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
     }
@@ -600,6 +705,18 @@ export function syncUi(player) {
   }
 
   syncBossBar(player);
+
+  const statsButton = document.getElementById("stats-button");
+  if (statsButton) {
+    const points = player.statPoints || 0;
+    statsButton.textContent = points > 0 ? `Stats ${points}` : "Stats";
+  }
+
+  if ((player.statPoints || 0) > lastStatPoints && lastStatPoints >= 0 && (player.statPoints || 0) > 0) {
+    setStatsOpen(true, player);
+  } else if (statsOpen) {
+    renderLevelPanel(player);
+  }
 
   const overlay = document.getElementById("game-over");
   const hintEl = document.querySelector(".game-over-hint");

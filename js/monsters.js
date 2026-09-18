@@ -1,4 +1,4 @@
-import { ACTIVE_RADIUS, ZOMBIE_SWING_COOLDOWN, ZOMBIE_SWING_EXTRA } from "./constants.js";
+import { ACTIVE_RADIUS } from "./constants.js";
 import { updateBat } from "./bat.js";
 import { updateDracula } from "./dracula.js";
 import { updateGolem } from "./golem.js";
@@ -207,14 +207,7 @@ export function updateMonsters(player, dt, onResolved, playerSafe = false) {
       }
 
       const after = Math.hypot(player.x - monster.x, player.y - monster.y);
-      if (monster.type === "zombie") {
-        monster.attackTimer = (monster.attackTimer || 0) - dt;
-        const reach = player.size + monster.size + ZOMBIE_SWING_EXTRA;
-        if (after < reach && monster.attackTimer <= 0) {
-          monster.attackTimer = ZOMBIE_SWING_COOLDOWN;
-          damagePlayer(player, monster.contactDamage * 0.7);
-        }
-      } else if (after < player.size + monster.size) {
+      if (after < player.size + monster.size) {
         damagePlayer(player, monster.contactDamage * dt);
       }
     }

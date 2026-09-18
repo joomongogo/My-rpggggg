@@ -45,9 +45,6 @@ export const ITEM_RANGE = {
 };
 
 export const PORTAL_RADIUS = 44;
-export const ZOMBIE_SWING_EXTRA = 18;
-export const ZOMBIE_SWING_COOLDOWN = 0.9;
-export const ZOMBIE_KNOCKBACK = 28;
 export const HEAD_KNOCKBACK = 22;
 
 export const ACTIVE_RADIUS = 800;
@@ -55,6 +52,7 @@ export const FUSION_COUNT = 5;
 
 export const SLIME_SPLIT_CHANCE = 0.6;
 export const ZOMBIE_UNDEAD_TIME = 5;
+export const RUSH_ZOMBIE_UNDEAD_TIME = 0.5;
 export const WITCH_CAST_COOLDOWN = 3.4;
 export const WITCH_CAST_RANGE = 520;
 export const WITCH_WINDUP = 0.9;

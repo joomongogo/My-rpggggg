@@ -46,6 +46,11 @@ export function serializeProgress(player) {
     hp: player.hp,
     maxHp: player.maxHp,
     damage: player.damage,
+    rangeMult: Number.isFinite(player.rangeMult) ? player.rangeMult : 1,
+    knockbackMult: Number.isFinite(player.knockbackMult) ? player.knockbackMult : 1,
+    healRate: Number.isFinite(player.healRate) ? player.healRate : 2,
+    reloadMult: Number.isFinite(player.reloadMult) ? player.reloadMult : 1,
+    statPoints: player.statPoints || 0,
     loadout: player.loadout.map((slot) => serializeItem(slot.item)),
     inventory: inventory.map(serializeItem).filter(Boolean)
   };
@@ -90,7 +95,12 @@ export function applyProgress(player) {
   player.exp = Math.max(0, finiteNumber(data.exp, player.exp));
   player.maxHp = Math.max(1, Math.floor(finiteNumber(data.maxHp, player.maxHp)));
   player.hp = Math.max(0, Math.min(player.maxHp, finiteNumber(data.hp, player.hp)));
-  player.damage = Math.max(1, finiteNumber(data.damage, player.damage));
+  player.damage = finiteNumber(data.damage, player.damage);
+  player.rangeMult = finiteNumber(data.rangeMult, player.rangeMult || 1);
+  player.knockbackMult = finiteNumber(data.knockbackMult, player.knockbackMult || 1);
+  player.healRate = finiteNumber(data.healRate, player.healRate || 2);
+  player.reloadMult = finiteNumber(data.reloadMult, player.reloadMult || 1);
+  player.statPoints = Math.max(0, Math.floor(finiteNumber(data.statPoints, player.statPoints || 0)));
 
   const slots = Array.isArray(data.loadout) ? data.loadout : [];
   for (let i = 0; i < SLOT_COUNT; i++) {

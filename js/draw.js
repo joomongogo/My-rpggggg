@@ -391,7 +391,8 @@ export function drawLoadout(ctx, player, time) {
     drawItemShape(ctx, screen.x, screen.y, 8, slot.item, time, ready);
 
     if (!ready) {
-      const ratio = 1 - slot.cooldown / slot.item.reload;
+      const reload = slot.item.reload * (player.reloadMult || 1);
+      const ratio = reload <= 0 ? 1 : 1 - slot.cooldown / reload;
       ctx.beginPath();
       ctx.strokeStyle = "rgba(255,255,255,0.85)";
       ctx.lineWidth = 2;

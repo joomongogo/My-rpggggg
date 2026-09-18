@@ -1,4 +1,4 @@
-import { ZOMBIE_UNDEAD_TIME } from "./constants.js";
+import { RUSH_ZOMBIE_UNDEAD_TIME, ZOMBIE_UNDEAD_TIME } from "./constants.js";
 
 export function tryStartUndead(monster) {
   if (monster.undead || monster.finished) {
@@ -8,9 +8,8 @@ export function tryStartUndead(monster) {
   monster.hp = 0;
   monster.alive = false;
   monster.undead = true;
-  monster.undeadTimer = ZOMBIE_UNDEAD_TIME;
+  monster.undeadTimer = monster.ephemeral ? RUSH_ZOMBIE_UNDEAD_TIME : ZOMBIE_UNDEAD_TIME;
   monster.speed *= 0.55;
-  console.log("[zombie] undead 5s");
   return true;
 }
 

@@ -85,6 +85,7 @@ export function createItem(type, rarity) {
   }
 
   if (type === "stick") {
+    item.stickBonus = 2 + index * 2;
     item.damage = 6;
   }
 

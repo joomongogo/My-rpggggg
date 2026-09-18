@@ -156,6 +156,81 @@ body {
   display: block;
 }
 
+#level-panel {
+  display: none;
+  position: fixed;
+  right: 112px;
+  left: auto;
+  top: auto;
+  bottom: 76px;
+  z-index: 9;
+  width: 260px;
+  max-height: 62vh;
+  overflow: auto;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.86);
+  border: 1px solid #f4c542;
+}
+
+#level-panel.visible {
+  display: block;
+}
+
+#level-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+#level-help {
+  font-size: 12px;
+  color: #ddd;
+  margin-bottom: 8px;
+}
+
+#level-choices {
+  display: grid;
+  gap: 6px;
+}
+
+#level-choices button {
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(244, 197, 66, 0.16);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+}
+
+#level-choices button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+#level-current {
+  font-size: 12px;
+  color: #ddd;
+  margin-bottom: 8px;
+  line-height: 1.45;
+}
+
+#level-refund {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(224, 90, 74, 0.22);
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#level-refund:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 #item-tooltip {
   display: none;
   position: fixed;
@@ -242,8 +317,18 @@ body {
   font-weight: bold;
 }
 
-#confirm-yes,
+#rush-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 #rush-choices button {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+#confirm-yes {
   background: rgba(224, 90, 74, 0.25);
 }
 
@@ -359,6 +444,26 @@ body {
 }
 
 #fuse-button.open {
+  border-color: #f4c542;
+}
+
+#stats-button {
+  position: fixed;
+  right: 112px;
+  bottom: 16px;
+  z-index: 6;
+  min-width: 88px;
+  height: 48px;
+  padding: 0 12px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: none;
+}
+
+#stats-button.open {
   border-color: #f4c542;
 }
 
@@ -704,6 +809,17 @@ body {
   #bestiary-panel {
     left: 16px;
     right: 16px;
+    width: auto;
+  }
+
+  #stats-button {
+    right: 96px;
+    min-width: 72px;
+  }
+
+  #level-panel {
+    right: 16px;
+    left: 16px;
     width: auto;
   }
 

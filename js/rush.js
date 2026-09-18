@@ -5,71 +5,54 @@ import { monsters } from "./monsters.js";
 
 export const RUSH_DURATION = 60;
 
-const DIFFICULTY = {
-  easy: {
-    id: "easy",
-    label: "Easy",
+const RUSH_TYPES = ["slime", "bat", "zombie", "leafbug", "witch", "golem", "dracula"];
+const REWARD_TYPES = ["mucus", "dart", "fang", "stick", "head", "potion", "boulder"];
+
+function swarmForIndex(index) {
+  if (index <= 1) {
+    return { maxAlive: 22, burst: 8, perTick: 1, interval: 1 };
+  }
+  if (index <= 3) {
+    return { maxAlive: 18, burst: 7, perTick: 1, interval: 1 };
+  }
+  if (index <= 5) {
+    return { maxAlive: 14, burst: 6, perTick: 1, interval: 1 };
+  }
+  return { maxAlive: 10, burst: 5, perTick: 1, interval: 1 };
+}
+
+function makeDifficulty(rarity, index) {
+  const swarm = swarmForIndex(index);
+  return {
+    id: rarity,
+    label: rarity,
+    rarity,
     hpMult: 1,
     atkMult: 1,
-    maxAlive: 6,
-    interval: 1.1,
-    burst: 4,
-    perTick: 1,
-    types: ["slime"],
-    rarities: ["Basic"],
-    exp: 80,
+    maxAlive: swarm.maxAlive,
+    interval: swarm.interval,
+    burst: swarm.burst,
+    perTick: swarm.perTick,
+    types: RUSH_TYPES,
+    rarities: [rarity],
+    exp: Math.round(80 * 1.65 ** index),
     rewards: [
-      { type: "mucus", rarity: "Basic" },
-      { type: "dart", rarity: "Basic" }
+      { type: REWARD_TYPES[index % REWARD_TYPES.length], rarity },
+      { type: REWARD_TYPES[(index + 3) % REWARD_TYPES.length], rarity }
     ]
-  },
-  normal: {
-    id: "normal",
-    label: "Normal",
-    hpMult: 1.35,
-    atkMult: 1.35,
-    maxAlive: 10,
-    interval: 0.65,
-    burst: 6,
-    perTick: 2,
-    types: ["slime", "bat"],
-    rarities: ["Basic", "Decent"],
-    exp: 180,
-    rewards: [
-      { type: "fang", rarity: "Decent" },
-      { type: "stick", rarity: "Decent" }
-    ]
-  },
-  hard: {
-    id: "hard",
-    label: "Hard",
-    hpMult: 1.8,
-    atkMult: 1.8,
-    maxAlive: 14,
-    interval: 0.32,
-    burst: 10,
-    perTick: 3,
-    types: ["slime", "bat", "zombie", "leafbug", "witch"],
-    rarities: ["Basic", "Decent", "Nice"],
-    exp: 350,
-    rewards: [
-      { type: "potion", rarity: "Nice" },
-      { type: "boulder", rarity: "Decent" },
-      { type: "head", rarity: "Decent" }
-    ]
-  }
-};
+  };
+}
+
+const DIFFICULTY = Object.fromEntries(
+  RARITY_ORDER.map((rarity, index) => [rarity, makeDifficulty(rarity, index)])
+);
 
 const rush = {
   active: false,
-  difficulty: "easy",
+  difficulty: "Basic",
   timeLeft: RUSH_DURATION,
   spawnAcc: 0
 };
-
-function livingRushMobs() {
-  return monsters.filter((monster) => monster.ephemeral && (monster.alive || monster.undead) && !monster.finished).length;
-}
 
 function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
@@ -79,10 +62,11 @@ function rushPoint(player) {
   return findSpawnPoint(player, {
     minDist: 0,
     maxDist: Infinity,
-    minPlayerDist: 140,
-    maxPlayerDist: 420,
+    minPlayerDist: 120,
+    maxPlayerDist: 480,
     avoidSafe: false,
-    avoidPortals: true
+    avoidPortals: true,
+    gap: 20
   });
 }
 
@@ -91,8 +75,7 @@ function spawnRushMob(player, cfg) {
   if (!point) {
     return null;
   }
-  const rarity = pick(cfg.rarities.filter((name) => RARITY_ORDER.includes(name)));
-  return spawnMonster(pick(cfg.types), point.x, point.y, rarity, 0, {
+  return spawnMonster(pick(cfg.types), point.x, point.y, cfg.rarity, 0, {
     ephemeral: true,
     hpMult: cfg.hpMult,
     atkMult: cfg.atkMult
@@ -103,9 +86,6 @@ function fillRushMobs(player, count) {
   const cfg = getRushDifficulty();
   let spawned = 0;
   for (let i = 0; i < count; i++) {
-    if (livingRushMobs() >= cfg.maxAlive) {
-      break;
-    }
     if (spawnRushMob(player, cfg)) {
       spawned += 1;
     }
@@ -114,7 +94,7 @@ function fillRushMobs(player, count) {
 }
 
 export function getRushDifficulties() {
-  return Object.values(DIFFICULTY);
+  return RARITY_ORDER.map((rarity) => DIFFICULTY[rarity]);
 }
 
 export function isRushActive() {
@@ -126,11 +106,11 @@ export function getRushTimeLeft() {
 }
 
 export function getRushDifficulty() {
-  return DIFFICULTY[rush.difficulty] || DIFFICULTY.easy;
+  return DIFFICULTY[rush.difficulty] || DIFFICULTY.Basic;
 }
 
 export function beginRush(player, difficulty) {
-  const cfg = DIFFICULTY[difficulty] || DIFFICULTY.easy;
+  const cfg = DIFFICULTY[difficulty] || DIFFICULTY.Basic;
   rush.active = true;
   rush.difficulty = cfg.id;
   rush.timeLeft = RUSH_DURATION;
@@ -171,9 +151,9 @@ export function updateRush(player, dt) {
   rush.spawnAcc -= dt;
 
   const cfg = getRushDifficulty();
-  if (rush.spawnAcc <= 0 && livingRushMobs() < cfg.maxAlive) {
+  if (rush.spawnAcc <= 0) {
     const spawned = fillRushMobs(player, cfg.perTick);
-    rush.spawnAcc = spawned > 0 ? cfg.interval : 0.08;
+    rush.spawnAcc = spawned > 0 ? cfg.interval : 0.45;
   }
 
   if (rush.timeLeft <= 0) {

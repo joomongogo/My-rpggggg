@@ -29,7 +29,7 @@
         <div id="exp-fill" class="bar-fill"></div>
         <span id="exp-text">EXP 0 / 100</span>
       </div>
-      <div id="hud-hint">Move: WASD / Bag: E / Fuse: F / Dex: B</div>
+      <div id="hud-hint">Move: WASD / Bag: E / Fuse: F / Stats: T / Dex: B</div>
       <div id="hud-bag">Bag 0</div>
     </div>
   </div>
@@ -49,6 +49,7 @@
   <button id="reset-button" type="button">Reset</button>
   <button id="bag-button" type="button">Bag 0</button>
   <button id="fuse-button" type="button">Fuse</button>
+  <button id="stats-button" type="button">Stats</button>
   <button id="dex-button" type="button">Dex</button>
 
   <div id="inventory-panel">
@@ -102,13 +103,21 @@
     <div class="game-over-hint">Returning to town in 3</div>
   </div>
 
+  <div id="level-panel">
+    <div id="level-title">Stats</div>
+    <div id="level-help">Choose a stat. Points left: 0</div>
+    <div id="level-current"></div>
+    <div id="level-choices"></div>
+    <button id="level-refund" type="button">Refund and reallocate</button>
+  </div>
+
   <div id="item-tooltip"></div>
   <div id="rush-result"></div>
 
   <div id="rush-modal">
     <div class="modal-card">
       <div class="modal-title">Monster Rush</div>
-      <div class="modal-body">Survive 60 seconds. Drops, EXP, and dex kills count. Death ends the rush.</div>
+      <div class="modal-body">Pick a rarity. That rarity floods the arena for 60 seconds. Drops, EXP, and dex count. Death ends the rush.</div>
       <div class="modal-actions" id="rush-choices"></div>
       <button id="rush-cancel" type="button">Cancel</button>
     </div>
@@ -125,6 +134,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js?v=reload-uncap"></script>
 </body>
 </html>
