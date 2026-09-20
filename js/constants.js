@@ -23,6 +23,9 @@ export const PLAYER_REGEN_DELAY = 2;
 export const PLAYER_RESPAWN_TIME = 3;
 export const PLAYER_RESPAWN_HP = 0.6;
 export const CONTACT_DPS_SCALE = 12;
+export const DAMAGE_STAT_BONUS = 0.04;
+export const RELOAD_STAT_GROWTH = 0.97;
+export const MIN_RELOAD_TIME = 0.1;
 
 export const ITEM_RELOAD = {
   fang: 0.45,
@@ -46,6 +49,7 @@ export const ITEM_RANGE = {
 
 export const PORTAL_RADIUS = 44;
 export const HEAD_KNOCKBACK = 22;
+export const FANG_HEAL = 3;
 
 export const ACTIVE_RADIUS = 800;
 export const FUSION_COUNT = 5;

@@ -1,13 +1,12 @@
 import { ITEM_RANGE, ITEM_RELOAD } from "./constants.js";
-import { getRarityIndex, getWeaponMult } from "./rarity.js";
+import { JOOMONG_RARITY, weaponDamageByRarity, weaponRarityLevel } from "./rarity.js";
 
 const BASE = {
   fang: {
     type: "fang",
     label: "Fang",
     color: "#f3d6d0",
-    damage: 18,
-    lifesteal: 0.08
+    damage: 18
   },
   mucus: {
     type: "mucus",
@@ -51,42 +50,58 @@ const BASE = {
   }
 };
 
-export function createItem(type, rarity) {
+export const WEAPON_TYPES = Object.keys(BASE);
+
+let nextItemId = 1;
+
+function newItemId() {
+  nextItemId += 1;
+  return `it-${Date.now().toString(36)}-${nextItemId}`;
+}
+
+export function itemLabel(type) {
+  return BASE[type]?.label || type;
+}
+
+export function createItem(type, rarity, extras = {}) {
   const base = BASE[type];
-  const mult = getWeaponMult(rarity);
-  const index = getRarityIndex(rarity);
-  const reloadCut = Math.max(0.65, 1 - index * 0.04);
+  if (!base) {
+    return null;
+  }
+
+  const level = weaponRarityLevel(rarity);
+  const enhanceCount = rarity === JOOMONG_RARITY
+    ? Math.max(0, Math.floor(Number(extras.enhanceCount) || 0))
+    : 0;
 
   const item = {
+    id: extras.id || newItemId(),
     type,
     rarity,
     label: base.label,
     color: base.color,
-    range: ITEM_RANGE[type] * (1 + index * 0.03),
-    reload: ITEM_RELOAD[type] * reloadCut,
-    damage: base.damage * mult
+    enhanceCount,
+    baseDamage: base.damage,
+    range: ITEM_RANGE[type] * (1 + level * 0.03),
+    reload: ITEM_RELOAD[type],
+    damage: weaponDamageByRarity(base.damage, rarity)
   };
 
-  if (type === "fang") {
-    item.lifesteal = Math.min(0.12, base.lifesteal * (1 + index * 0.08));
-  }
-
   if (type === "mucus") {
-    item.slow = Math.min(0.7, base.slow * (1 + index * 0.08));
-    item.slowDuration = base.slowDuration + index * 0.12;
+    item.slow = Math.min(0.7, base.slow * (1 + level * 0.08));
+    item.slowDuration = base.slowDuration + level * 0.12;
   }
 
   if (type === "potion") {
-    item.aoeRadius = base.aoeRadius * (1 + index * 0.08);
+    item.aoeRadius = base.aoeRadius * (1 + level * 0.08);
   }
 
   if (type === "head") {
-    item.knockback = base.knockback + index * 3;
+    item.knockback = base.knockback + level * 3;
   }
 
   if (type === "stick") {
-    item.stickBonus = 2 + index * 2;
-    item.damage = 6;
+    item.stickBonus = weaponDamageByRarity(2 + level * 2, rarity);
   }
 
   return item;

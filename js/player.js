@@ -1,4 +1,5 @@
 import {
+  DAMAGE_STAT_BONUS,
   PLAYER_DAMAGE,
   PLAYER_MAX_EXP,
   PLAYER_MAX_HP,
@@ -7,7 +8,8 @@ import {
   PLAYER_RESPAWN_HP,
   PLAYER_RESPAWN_TIME,
   PLAYER_SIZE,
-  PLAYER_SPEED
+  PLAYER_SPEED,
+  RELOAD_STAT_GROWTH
 } from "./constants.js";
 import { createLoadout, giveStarterLoadout, replaceInventory } from "./loadout.js";
 import { moveWithSlide } from "./map.js";
@@ -25,10 +27,12 @@ export function createPlayer() {
     maxExp: PLAYER_MAX_EXP,
     level: 1,
     damage: PLAYER_DAMAGE,
+    damageStat: 0,
     rangeMult: 1,
     knockbackMult: 1,
     healRate: PLAYER_REGEN,
     reloadMult: 1,
+    reloadStat: 0,
     loadout: createLoadout(),
     hurtTimer: 0,
     respawnTimer: 0,
@@ -39,13 +43,11 @@ export function createPlayer() {
 
   if (!applyProgress(player)) {
     giveStarterLoadout(player);
-  } else {
-    recoverCappedReload(player);
-    if (player.hp <= 0) {
-      player.hp = player.maxHp;
-      player.respawnTimer = 0;
-    }
+  } else if (player.hp <= 0) {
+    player.hp = player.maxHp;
+    player.respawnTimer = 0;
   }
+  syncDerivedStats(player);
   return player;
 }
 
@@ -55,11 +57,11 @@ export function resetPlayer(player) {
   player.maxExp = PLAYER_MAX_EXP;
   player.maxHp = PLAYER_MAX_HP;
   player.hp = PLAYER_MAX_HP;
-  player.damage = PLAYER_DAMAGE;
+  player.damageStat = 0;
+  player.reloadStat = 0;
   player.rangeMult = 1;
   player.knockbackMult = 1;
   player.healRate = PLAYER_REGEN;
-  player.reloadMult = 1;
   player.hurtTimer = 0;
   player.respawnTimer = 0;
   player.knockX = 0;
@@ -71,6 +73,25 @@ export function resetPlayer(player) {
   }
   replaceInventory([]);
   giveStarterLoadout(player);
+  syncDerivedStats(player);
+}
+
+export function syncDerivedStats(player) {
+  if (!player) {
+    return;
+  }
+  player.damageStat = Math.max(0, Math.floor(player.damageStat || 0));
+  player.reloadStat = Math.max(0, Math.floor(player.reloadStat || 0));
+  player.damage = PLAYER_DAMAGE * (1 + player.damageStat * DAMAGE_STAT_BONUS);
+  player.reloadMult = RELOAD_STAT_GROWTH ** player.reloadStat;
+}
+
+export function damageStatMultiplier(player) {
+  return 1 + Math.max(0, player.damageStat || 0) * DAMAGE_STAT_BONUS;
+}
+
+export function reloadStatMultiplier(player) {
+  return RELOAD_STAT_GROWTH ** Math.max(0, player.reloadStat || 0);
 }
 
 export function applyPlayerKnockback(player, fromX, fromY, force) {
@@ -81,38 +102,7 @@ export function applyPlayerKnockback(player, fromX, fromY, force) {
   player.knockY += (dy / len) * force;
 }
 
-function growthPoints(value, start, factor) {
-  if (!Number.isFinite(value) || !Number.isFinite(start) || value <= 0 || start <= 0) {
-    return 0;
-  }
-  const n = Math.log(value / start) / Math.log(factor);
-  if (!Number.isFinite(n) || n < 0) {
-    return 0;
-  }
-  return Math.round(n);
-}
-
-function recoverCappedReload(player) {
-  if (!player || Math.abs((player.reloadMult || 1) - 0.3) > 1e-9) {
-    return;
-  }
-
-  const spent = Math.max(0, player.level - 1 - (player.statPoints || 0));
-  const accounted =
-    Math.max(0, Math.round((player.maxHp - PLAYER_MAX_HP) / 12)) +
-    growthPoints(player.damage, PLAYER_DAMAGE, 1.08) +
-    growthPoints(player.rangeMult || 1, 1, 1.06) +
-    growthPoints(player.knockbackMult || 1, 1, 1.08) +
-    growthPoints(player.healRate || PLAYER_REGEN, PLAYER_REGEN, 1.08) +
-    growthPoints(player.reloadMult || 1, 1, 0.9);
-  const missing = spent - accounted;
-  if (missing > 0) {
-    player.reloadMult = (player.reloadMult || 1) * Math.pow(0.9, missing);
-  }
-}
-
 export function updatePlayer(player, move, dt) {
-  recoverCappedReload(player);
   if (player.hp <= 0) {
     if (player.respawnTimer > 0) {
       player.respawnTimer = Math.max(0, player.respawnTimer - dt);
@@ -161,11 +151,11 @@ export function addExperience(player, amount) {
 
 export const STAT_CHOICES = [
   { id: "hp", label: "Health", detail: "+12 max HP" },
-  { id: "damage", label: "Damage", detail: "+8% weapon damage" },
+  { id: "damage", label: "Damage", detail: "+4% weapon damage" },
   { id: "range", label: "Range", detail: "+6% attack range" },
   { id: "knockback", label: "Knockback", detail: "+8% knockback" },
-  { id: "heal", label: "Heal speed", detail: "+8% regen and lifesteal" },
-  { id: "reload", label: "Reload", detail: "-10% reload time" }
+  { id: "heal", label: "Heal speed", detail: "+8% regen" },
+  { id: "reload", label: "Reload", detail: "-3% reload time" }
 ];
 
 export function applyStatChoice(player, stat) {
@@ -177,7 +167,7 @@ export function applyStatChoice(player, stat) {
     player.maxHp += 12;
     player.hp = Math.min(player.maxHp, player.hp + 12);
   } else if (stat === "damage") {
-    player.damage *= 1.08;
+    player.damageStat = (player.damageStat || 0) + 1;
   } else if (stat === "range") {
     player.rangeMult = (player.rangeMult || 1) * 1.06;
   } else if (stat === "knockback") {
@@ -185,12 +175,13 @@ export function applyStatChoice(player, stat) {
   } else if (stat === "heal") {
     player.healRate = (player.healRate || PLAYER_REGEN) * 1.08;
   } else if (stat === "reload") {
-    player.reloadMult = (Number.isFinite(player.reloadMult) ? player.reloadMult : 1) * 0.9;
+    player.reloadStat = (player.reloadStat || 0) + 1;
   } else {
     return false;
   }
 
   player.statPoints -= 1;
+  syncDerivedStats(player);
   console.log("[player] chose", stat, "points", player.statPoints);
   return true;
 }
@@ -204,12 +195,13 @@ export function refundStats(player) {
   const ratio = player.maxHp > 0 ? player.hp / player.maxHp : 1;
   player.maxHp = PLAYER_MAX_HP;
   player.hp = Math.max(1, Math.min(PLAYER_MAX_HP, Math.round(PLAYER_MAX_HP * ratio)));
-  player.damage = PLAYER_DAMAGE;
+  player.damageStat = 0;
+  player.reloadStat = 0;
   player.rangeMult = 1;
   player.knockbackMult = 1;
   player.healRate = PLAYER_REGEN;
-  player.reloadMult = 1;
   player.statPoints = total;
+  syncDerivedStats(player);
   console.log("[player] refund stats", total);
   return total;
 }

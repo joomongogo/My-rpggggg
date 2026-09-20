@@ -1,5 +1,5 @@
 import { worldToScreen, isOnScreen } from "./camera.js";
-import { effects } from "./combat.js";
+import { effects, itemReloadTime } from "./combat.js";
 import { getSlotWorldPos } from "./loadout.js";
 import { createRarityPaint, getRarityColor } from "./rarity.js";
 
@@ -391,7 +391,7 @@ export function drawLoadout(ctx, player, time) {
     drawItemShape(ctx, screen.x, screen.y, 8, slot.item, time, ready);
 
     if (!ready) {
-      const reload = slot.item.reload * (player.reloadMult || 1);
+      const reload = itemReloadTime(slot.item, player);
       const ratio = reload <= 0 ? 1 : 1 - slot.cooldown / reload;
       ctx.beginPath();
       ctx.strokeStyle = "rgba(255,255,255,0.85)";

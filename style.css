@@ -266,7 +266,8 @@ body {
 }
 
 #rush-modal,
-#confirm-modal {
+#confirm-modal,
+#craft-modal {
   display: none;
   position: fixed;
   inset: 0;
@@ -277,7 +278,8 @@ body {
 }
 
 #rush-modal.visible,
-#confirm-modal.visible {
+#confirm-modal.visible,
+#craft-modal.visible {
   display: flex;
 }
 
@@ -560,8 +562,8 @@ body {
   left: 16px;
   bottom: 76px;
   z-index: 6;
-  width: 300px;
-  max-height: 46vh;
+  width: 340px;
+  max-height: 52vh;
   overflow: auto;
   padding: 12px;
   background: rgba(0, 0, 0, 0.82);
@@ -711,6 +713,34 @@ body {
   );
   background-size: 240% 100%;
   animation: rainbow-shift 2.2s linear infinite;
+}
+
+.rarity-jo0mong {
+  border-color: #3EE6C1;
+  color: #3EE6C1;
+}
+
+.joomong-row {
+  align-items: flex-start;
+}
+
+.joomong-info {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #ddd;
+}
+
+.joomong-title {
+  font-weight: bold;
+  color: #3EE6C1;
+  margin-bottom: 4px;
+}
+
+.joomong-reason {
+  color: #ff8a80;
+  margin-top: 4px;
 }
 
 @keyframes rainbow-shift {

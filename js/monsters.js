@@ -4,20 +4,26 @@ import { updateDracula } from "./dracula.js";
 import { updateGolem } from "./golem.js";
 import { updateLeafbug } from "./leafbug.js";
 import { moveWithSlide } from "./map.js";
-import { getMonsterAtkMult, getMonsterHpMult, getRarityIndex } from "./rarity.js";
+import {
+  MONSTER_ATK_GROWTH,
+  MONSTER_STAT_GROWTH,
+  WEAPON_DAMAGE_GROWTH,
+  getRarityIndex,
+  scaleByRarity
+} from "./rarity.js";
 import { damagePlayer } from "./player.js";
 import { onSlimeDefeat } from "./slime.js";
 import { tryStartUndead, updateZombie } from "./zombie.js";
 import { isWitchCasting, updateWitch } from "./witch.js";
 
 export const TYPE_BASE = {
-  slime: { hp: 40, contact: 8, speed: 1.6, size: 22, exp: 12 },
-  zombie: { hp: 80, contact: 12, speed: 1.2, size: 26, exp: 20 },
-  witch: { hp: 55, contact: 5, speed: 1.3, size: 24, exp: 28 },
-  bat: { hp: 22, contact: 6, speed: 2.35, size: 16, exp: 16 },
-  golem: { hp: 140, contact: 16, speed: 0.72, size: 34, exp: 36 },
-  dracula: { hp: 90, contact: 14, speed: 1.5, size: 26, exp: 32 },
-  leafbug: { hp: 18, contact: 5, speed: 2.8, size: 14, exp: 14 }
+  slime: { hp: 40, contact: 18, speed: 2.7, size: 22, exp: 12 },
+  zombie: { hp: 80, contact: 24, speed: 2.1, size: 26, exp: 20 },
+  witch: { hp: 55, contact: 10, speed: 2.2, size: 24, exp: 28 },
+  bat: { hp: 22, contact: 14, speed: 3.2, size: 16, exp: 16 },
+  golem: { hp: 480, contact: 28, speed: 1.2, size: 34, exp: 36 },
+  dracula: { hp: 90, contact: 26, speed: 2.6, size: 26, exp: 32 },
+  leafbug: { hp: 18, contact: 12, speed: 3.5, size: 14, exp: 14 }
 };
 
 let nextId = 1;
@@ -26,9 +32,8 @@ export const monsters = [];
 
 export function createMonster(type, x, y, rarity) {
   const base = TYPE_BASE[type];
-  const hpMult = getMonsterHpMult(rarity);
-  const atkMult = getMonsterAtkMult(rarity);
   const index = getRarityIndex(rarity);
+  const hp = scaleByRarity(base.hp, rarity, MONSTER_STAT_GROWTH);
 
   return {
     id: nextId++,
@@ -40,10 +45,10 @@ export function createMonster(type, x, y, rarity) {
     size: base.size * (1 + index * 0.12),
     baseSpeed: base.speed * (1 + index * 0.03),
     speed: base.speed * (1 + index * 0.03),
-    hp: base.hp * hpMult,
-    maxHp: base.hp * hpMult,
-    expReward: Math.round(base.exp * hpMult),
-    contactDamage: base.contact * atkMult,
+    hp,
+    maxHp: hp,
+    expReward: Math.round(scaleByRarity(base.exp, rarity, WEAPON_DAMAGE_GROWTH)),
+    contactDamage: scaleByRarity(base.contact, rarity, MONSTER_ATK_GROWTH),
     alive: true,
     finished: false,
     undead: false,

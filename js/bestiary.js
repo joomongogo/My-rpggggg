@@ -1,5 +1,10 @@
 import { TYPE_BASE } from "./monsters.js";
-import { getMonsterAtkMult, getMonsterHpMult, RARITY_ORDER } from "./rarity.js";
+import {
+  MONSTER_ATK_GROWTH,
+  MONSTER_STAT_GROWTH,
+  WORLD_RARITIES,
+  scaleByRarity
+} from "./rarity.js";
 
 const STORAGE_KEY = "myrpg-bestiary";
 
@@ -74,8 +79,6 @@ export function getTotalKills() {
 
 export function getBestiaryEntry(type, rarity) {
   const base = TYPE_BASE[type];
-  const hpMult = getMonsterHpMult(rarity);
-  const atkMult = getMonsterAtkMult(rarity);
   const count = getKillCount(type, rarity);
   return {
     type,
@@ -83,8 +86,8 @@ export function getBestiaryEntry(type, rarity) {
     name: `${rarity} ${TYPE_LABEL[type]}`,
     kills: count,
     unlocked: count > 0,
-    hp: Math.round(base.hp * hpMult),
-    contact: Math.round(base.contact * atkMult),
+    hp: Math.round(scaleByRarity(base.hp, rarity, MONSTER_STAT_GROWTH)),
+    contact: Math.round(scaleByRarity(base.contact, rarity, MONSTER_ATK_GROWTH)),
     blurb: TYPE_BLURB[type]
   };
 }
@@ -92,7 +95,7 @@ export function getBestiaryEntry(type, rarity) {
 export function getAllBestiaryEntries() {
   const rows = [];
   for (const type of MONSTER_TYPES) {
-    for (const rarity of RARITY_ORDER) {
+    for (const rarity of WORLD_RARITIES) {
       rows.push(getBestiaryEntry(type, rarity));
     }
   }

@@ -1,7 +1,7 @@
-import { SLOT_COUNT } from "./constants.js";
+import { PLAYER_DAMAGE, SLOT_COUNT } from "./constants.js";
 import { createItem } from "./items.js";
 import { inventory, replaceInventory } from "./loadout.js";
-import { RARITY_ORDER } from "./rarity.js";
+import { JOOMONG_RARITY, RARITY_ORDER } from "./rarity.js";
 
 const STORAGE_KEY = "myrpg-save";
 const SAVE_VERSION = 1;
@@ -23,18 +23,40 @@ function serializeItem(item) {
   if (!item || !isItemSpec(item)) {
     return null;
   }
-  return { type: item.type, rarity: item.rarity };
+  const spec = { type: item.type, rarity: item.rarity, id: item.id };
+  if (item.rarity === JOOMONG_RARITY) {
+    spec.enhanceCount = Math.max(0, Math.floor(item.enhanceCount || 0));
+  }
+  return spec;
 }
 
 function restoreItem(spec) {
   if (!isItemSpec(spec)) {
     return null;
   }
-  return createItem(spec.type, spec.rarity);
+  const extras = { id: spec.id };
+  if (spec.rarity === JOOMONG_RARITY) {
+    extras.enhanceCount = Math.max(0, Math.floor(spec.enhanceCount || 0));
+  }
+  return createItem(spec.type, spec.rarity, extras);
 }
 
 function finiteNumber(value, fallback) {
   return Number.isFinite(value) ? value : fallback;
+}
+
+function inferGrowthCount(value, start, factor) {
+  if (!Number.isFinite(value) || !Number.isFinite(start) || start <= 0 || value <= 0) {
+    return 0;
+  }
+  if (value <= start * 1.0001) {
+    return 0;
+  }
+  const n = Math.log(value / start) / Math.log(factor);
+  if (!Number.isFinite(n) || n < 0) {
+    return 0;
+  }
+  return Math.round(n);
 }
 
 export function serializeProgress(player) {
@@ -46,10 +68,12 @@ export function serializeProgress(player) {
     hp: player.hp,
     maxHp: player.maxHp,
     damage: player.damage,
+    damageStat: player.damageStat || 0,
     rangeMult: Number.isFinite(player.rangeMult) ? player.rangeMult : 1,
     knockbackMult: Number.isFinite(player.knockbackMult) ? player.knockbackMult : 1,
     healRate: Number.isFinite(player.healRate) ? player.healRate : 2,
     reloadMult: Number.isFinite(player.reloadMult) ? player.reloadMult : 1,
+    reloadStat: player.reloadStat || 0,
     statPoints: player.statPoints || 0,
     loadout: player.loadout.map((slot) => serializeItem(slot.item)),
     inventory: inventory.map(serializeItem).filter(Boolean)
@@ -95,11 +119,19 @@ export function applyProgress(player) {
   player.exp = Math.max(0, finiteNumber(data.exp, player.exp));
   player.maxHp = Math.max(1, Math.floor(finiteNumber(data.maxHp, player.maxHp)));
   player.hp = Math.max(0, Math.min(player.maxHp, finiteNumber(data.hp, player.hp)));
-  player.damage = finiteNumber(data.damage, player.damage);
+  if (Number.isFinite(data.damageStat)) {
+    player.damageStat = Math.max(0, Math.floor(data.damageStat));
+  } else {
+    player.damageStat = inferGrowthCount(data.damage, PLAYER_DAMAGE, 1.08);
+  }
   player.rangeMult = finiteNumber(data.rangeMult, player.rangeMult || 1);
   player.knockbackMult = finiteNumber(data.knockbackMult, player.knockbackMult || 1);
   player.healRate = finiteNumber(data.healRate, player.healRate || 2);
-  player.reloadMult = finiteNumber(data.reloadMult, player.reloadMult || 1);
+  if (Number.isFinite(data.reloadStat)) {
+    player.reloadStat = Math.max(0, Math.floor(data.reloadStat));
+  } else {
+    player.reloadStat = inferGrowthCount(data.reloadMult || 1, 1, 0.9);
+  }
   player.statPoints = Math.max(0, Math.floor(finiteNumber(data.statPoints, player.statPoints || 0)));
 
   const slots = Array.isArray(data.loadout) ? data.loadout : [];

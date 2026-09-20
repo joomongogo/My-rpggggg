@@ -1,13 +1,28 @@
 import { getAllBestiaryEntries, getTotalKills, resetBestiary, TYPE_LABEL } from "./bestiary.js";
-import { ACTIVE_RADIUS, FUSION_COUNT } from "./constants.js";
-import { describeWeapon } from "./combat.js";
+import { ACTIVE_RADIUS, DAMAGE_STAT_BONUS, FUSION_COUNT, RELOAD_STAT_GROWTH } from "./constants.js";
+import { describeWeapon, itemReloadTime, weaponDamage } from "./combat.js";
 import { bindDrag } from "./drag.js";
 import { paintItemIcon } from "./draw.js";
-import { canFuse, fuseItems, getFusionChance } from "./fusion.js";
-import { createItem } from "./items.js";
+import {
+  canFuse,
+  craftJoomong,
+  craftStatus,
+  enhanceJoomong,
+  enhanceStatus,
+  fuseItems,
+  getFusionChance
+} from "./fusion.js";
+import { createItem, itemLabel, WEAPON_TYPES } from "./items.js";
 import { inventory } from "./loadout.js";
 import { monsters } from "./monsters.js";
-import { getHigherRarity, getRarityClass } from "./rarity.js";
+import {
+  getHigherRarity,
+  getRarityClass,
+  JOOMONG_ENHANCE_GROWTH,
+  JOOMONG_RARITY,
+  joomongEnhanceMult,
+  X_RARITY
+} from "./rarity.js";
 import { isTouchUiVisible } from "./touch.js";
 import { scheduleSave, wipeSave, writeSave } from "./save.js";
 import { enterArea, getArea } from "./areas.js";
@@ -26,6 +41,8 @@ let uiHooks = {};
 let tooltipHold = 0;
 let resultTimer = 0;
 let lastStatPoints = -1;
+let pendingCraft = null;
+let craftLock = false;
 
 function setBar(fillId, textId, ratio, text) {
   const fill = document.getElementById(fillId);
@@ -49,7 +66,8 @@ function groupInventory() {
         type: item.type,
         rarity: item.rarity,
         label: item.label,
-        count: 1
+        count: 1,
+        item
       });
     }
   }
@@ -183,17 +201,18 @@ function renderLevelPanel(player) {
   if (current) {
     current.textContent =
       `HP ${Math.floor(player.hp)} / ${player.maxHp}` +
-      ` · DMG ${player.damage.toFixed(1)}` +
+      ` · DMG x${(1 + (player.damageStat || 0) * DAMAGE_STAT_BONUS).toFixed(2)}` +
       ` · Range x${(player.rangeMult || 1).toFixed(2)}` +
       ` · Knock x${(player.knockbackMult || 1).toFixed(2)}` +
       ` · Heal ${(player.healRate || 2).toFixed(2)}/s` +
-      ` · Reload x${(player.reloadMult || 1).toFixed(2)}`;
+      ` · Reload x${(RELOAD_STAT_GROWTH ** (player.reloadStat || 0)).toFixed(3)}`;
   }
   if (refund) {
     refund.disabled = spent <= 0;
   }
 
-  if (host.childElementCount !== STAT_CHOICES.length) {
+  if (host.dataset.stats !== "v-dmg4-reload3") {
+    host.dataset.stats = "v-dmg4-reload3";
     host.innerHTML = "";
     for (const choice of STAT_CHOICES) {
       const button = document.createElement("button");
@@ -270,7 +289,7 @@ function renderInventory() {
     tile.dataset.itemRarity = group.rarity;
     tile.title = `${group.label} ${group.rarity}`;
     tile.appendChild(makeIcon(group.type, group.rarity));
-    bindItemTooltip(tile, () => createItem(group.type, group.rarity));
+    bindItemTooltip(tile, () => group.item || createItem(group.type, group.rarity));
     if (group.count > 1) {
       const count = document.createElement("span");
       count.className = "item-count";
@@ -289,14 +308,6 @@ function renderFuse(player) {
 
   list.innerHTML = "";
   const groups = groupInventory().filter((group) => canFuse(group.type, group.rarity));
-
-  if (groups.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "inventory-empty";
-    empty.textContent = `Need ${FUSION_COUNT} of the same weapon.`;
-    list.appendChild(empty);
-    return;
-  }
 
   for (const group of groups) {
     const next = getHigherRarity(group.rarity);
@@ -339,6 +350,167 @@ function renderFuse(player) {
     });
     row.appendChild(fuse);
     list.appendChild(row);
+  }
+
+  for (const type of WEAPON_TYPES) {
+    list.appendChild(buildJoomongRow(player, type));
+  }
+
+  if (groups.length === 0 && list.childElementCount === 0) {
+    const empty = document.createElement("div");
+    empty.className = "inventory-empty";
+    empty.textContent = `Need ${FUSION_COUNT} of the same weapon.`;
+    list.appendChild(empty);
+  }
+}
+
+function buildJoomongRow(player, type) {
+  const label = itemLabel(type);
+  const owned = findJoomongItem(player, type);
+  const wrap = document.createElement("div");
+  wrap.className = "fuse-row joomong-row";
+
+  const info = document.createElement("div");
+  info.className = "joomong-info";
+
+  const title = document.createElement("div");
+  title.className = "joomong-title";
+  title.textContent = owned ? `${JOOMONG_RARITY} ${label}` : `Craft ${JOOMONG_RARITY} ${label}`;
+  info.appendChild(title);
+
+  const meta = document.createElement("div");
+  meta.className = "joomong-meta";
+  const haveX = countXOwned(player, type);
+  if (owned) {
+    const count = Math.max(0, Math.floor(owned.enhanceCount || 0));
+    const nowMult = joomongEnhanceMult(owned);
+    const nextItem = createItem(type, JOOMONG_RARITY, { enhanceCount: count + 1 });
+    const before = weaponDamage(owned, player);
+    const after = weaponDamage(nextItem, player);
+    meta.innerHTML =
+      `${JOOMONG_RARITY} · Enhance ${count} · x${nowMult.toFixed(4)}<br>` +
+      `Have ${haveX} ${X_RARITY} ${label} · need 1<br>` +
+      `${X_RARITY} ${label} x1 → attack x${JOOMONG_ENHANCE_GROWTH.toFixed(2)} · 100%<br>` +
+      `Damage ${before.toFixed(1)} → ${after.toFixed(1)}`;
+  } else {
+    meta.innerHTML =
+      `Have ${haveX} ${X_RARITY} ${label} · need ${FUSION_COUNT}<br>` +
+      `${FUSION_COUNT} identical ${X_RARITY} ${label} → 1 ${JOOMONG_RARITY} ${label}<br>` +
+      `Success 100% · enhance 0 · x1.0000`;
+  }
+  info.appendChild(meta);
+
+  const preview = document.createElement("div");
+  preview.className = `fuse-preview ${getRarityClass(owned ? JOOMONG_RARITY : X_RARITY)}`;
+  preview.appendChild(makeIcon(type, owned ? JOOMONG_RARITY : X_RARITY, 44));
+  bindItemTooltip(preview, () => owned || createItem(type, X_RARITY));
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "fuse-button";
+  const status = owned ? enhanceStatus(player, type) : craftStatus(player, type);
+  button.textContent = owned ? "Enhance" : "Craft";
+  button.disabled = !status.ok;
+  if (!status.ok) {
+    button.title = status.reason;
+    const why = document.createElement("div");
+    why.className = "joomong-reason";
+    why.textContent = status.reason;
+    info.appendChild(why);
+  }
+
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!status.ok || craftLock) {
+      return;
+    }
+    openCraftConfirm(player, type, Boolean(owned), label, haveX, owned);
+  });
+
+  wrap.appendChild(preview);
+  wrap.appendChild(info);
+  wrap.appendChild(button);
+  return wrap;
+}
+
+function findJoomongItem(player, type) {
+  for (const slot of player.loadout) {
+    if (slot.item && slot.item.type === type && slot.item.rarity === JOOMONG_RARITY) {
+      return slot.item;
+    }
+  }
+  return inventory.find((item) => item.type === type && item.rarity === JOOMONG_RARITY) || null;
+}
+
+function countXOwned(player, type) {
+  let total = 0;
+  for (const item of inventory) {
+    if (item.type === type && item.rarity === X_RARITY) {
+      total += 1;
+    }
+  }
+  for (const slot of player.loadout) {
+    if (slot.item && slot.item.type === type && slot.item.rarity === X_RARITY) {
+      total += 1;
+    }
+  }
+  return total;
+}
+
+function openCraftConfirm(player, type, isEnhance, label, haveX, owned) {
+  const modal = document.getElementById("craft-modal");
+  const title = document.getElementById("craft-title");
+  const body = document.getElementById("craft-body");
+  if (!modal || !title || !body) {
+    return;
+  }
+
+  if (isEnhance) {
+    const count = Math.max(0, Math.floor(owned.enhanceCount || 0));
+    const before = weaponDamage(owned, player);
+    const after = weaponDamage(createItem(type, JOOMONG_RARITY, { enhanceCount: count + 1 }), player);
+    title.textContent = `Enhance ${JOOMONG_RARITY} ${label}?`;
+    body.innerHTML =
+      `Sacrifice 1 ${X_RARITY} ${label} (have ${haveX}).<br>` +
+      `Attack x${JOOMONG_ENHANCE_GROWTH.toFixed(2)} · success 100%.<br>` +
+      `Enhance ${count} → ${count + 1}.<br>` +
+      `Damage ${before.toFixed(1)} → ${after.toFixed(1)}.`;
+    pendingCraft = () => enhanceJoomong(player, type);
+  } else {
+    title.textContent = `Craft ${JOOMONG_RARITY} ${label}?`;
+    body.innerHTML =
+      `${FUSION_COUNT} identical ${X_RARITY} ${label} → 1 ${JOOMONG_RARITY} ${label}.<br>` +
+      `Have ${haveX}. Success 100%. Enhance 0 · x1.0000.`;
+    pendingCraft = () => craftJoomong(player, type);
+  }
+
+  modal.classList.add("visible");
+}
+
+function finishCraft(player) {
+  if (craftLock) {
+    return;
+  }
+  const action = pendingCraft;
+  pendingCraft = null;
+  document.getElementById("craft-modal")?.classList.remove("visible");
+  if (!action) {
+    return;
+  }
+  craftLock = true;
+  try {
+    const result = action();
+    if (result?.ok) {
+      scheduleSave(player);
+      writeSave(player);
+      renderFuse(player);
+      if (inventoryOpen) {
+        renderInventory();
+      }
+      syncUi(player);
+    }
+  } finally {
+    craftLock = false;
   }
 }
 
@@ -571,6 +743,15 @@ export function bindUi(player, hooks = {}) {
     confirmModal?.classList.remove("visible");
   });
 
+  const craftModal = document.getElementById("craft-modal");
+  document.getElementById("craft-yes")?.addEventListener("click", () => {
+    finishCraft(player);
+  });
+  document.getElementById("craft-no")?.addEventListener("click", () => {
+    pendingCraft = null;
+    craftModal?.classList.remove("visible");
+  });
+
   renderRushChoices(player);
   renderLevelPanel(player);
   document.getElementById("rush-cancel")?.addEventListener("click", closeRushSelect);
@@ -652,8 +833,8 @@ export function syncUi(player) {
     bagButton.textContent = `Bag ${inventory.length}`;
   }
 
-  const signature = inventory.map((item) => `${item.type}-${item.rarity}`).join("|") +
-    player.loadout.map((slot) => slot.item ? `${slot.item.type}-${slot.item.rarity}` : "").join("|");
+  const signature = inventory.map((item) => `${item.type}-${item.rarity}-${item.enhanceCount || 0}-${item.id || ""}`).join("|") +
+    player.loadout.map((slot) => slot.item ? `${slot.item.type}-${slot.item.rarity}-${slot.item.enhanceCount || 0}` : "").join("|");
   if (inventoryOpen && signature !== lastInventoryKey) {
     renderInventory(player);
   }
@@ -689,7 +870,7 @@ export function syncUi(player) {
     name.textContent = slot.item.label;
     meta.textContent = slot.item.rarity;
     button.style.borderColor = "";
-    const reload = slot.item.reload * (player.reloadMult || 1);
+    const reload = itemReloadTime(slot.item, player);
     const ratio = reload <= 0 ? 1 : 1 - slot.cooldown / reload;
     if (cool) {
       cool.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;

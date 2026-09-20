@@ -1,5 +1,5 @@
 import { createItem } from "./items.js";
-import { RARITY_ORDER } from "./rarity.js";
+import { WORLD_RARITIES } from "./rarity.js";
 import { findSpawnPoint, spawnMonster } from "./spawn.js";
 import { monsters } from "./monsters.js";
 
@@ -44,7 +44,7 @@ function makeDifficulty(rarity, index) {
 }
 
 const DIFFICULTY = Object.fromEntries(
-  RARITY_ORDER.map((rarity, index) => [rarity, makeDifficulty(rarity, index)])
+  WORLD_RARITIES.map((rarity, index) => [rarity, makeDifficulty(rarity, index)])
 );
 
 const rush = {
@@ -94,7 +94,7 @@ function fillRushMobs(player, count) {
 }
 
 export function getRushDifficulties() {
-  return RARITY_ORDER.map((rarity) => DIFFICULTY[rarity]);
+  return WORLD_RARITIES.map((rarity) => DIFFICULTY[rarity]);
 }
 
 export function isRushActive() {

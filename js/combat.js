@@ -1,24 +1,59 @@
-import { EFFECT_LIFETIME, HEAD_KNOCKBACK, PLAYER_DAMAGE, PLAYER_REGEN } from "./constants.js";
-import { healPlayer } from "./player.js";
+import { EFFECT_LIFETIME, HEAD_KNOCKBACK, MIN_RELOAD_TIME } from "./constants.js";
+import { damageStatMultiplier, healPlayer, reloadStatMultiplier } from "./player.js";
 import { countEquippedOfType } from "./loadout.js";
 import { applyMonsterHit, applySlow, canBeHit } from "./monsters.js";
-import { getRarityIndex } from "./rarity.js";
+import {
+  fangHealByRarity,
+  JOOMONG_RARITY,
+  joomongEnhanceMult,
+  weaponDamageByRarity,
+  weaponRarityLevel
+} from "./rarity.js";
 import { moveWithSlide } from "./map.js";
 
+function rarityDamage(item) {
+  const base = Number.isFinite(item.baseDamage) ? item.baseDamage : item.damage;
+  return weaponDamageByRarity(base, item.rarity);
+}
+
 function scaled(player, amount) {
-  return amount * (player.damage / PLAYER_DAMAGE);
+  return amount * damageStatMultiplier(player);
+}
+
+function attackMult(item) {
+  return joomongEnhanceMult(item);
 }
 
 function stickBonusOf(item) {
-  if (item.stickBonus != null) {
-    return item.stickBonus;
-  }
-  return 2 + getRarityIndex(item.rarity) * 2;
+  const level = weaponRarityLevel(item.rarity);
+  const bonus = item.stickBonus != null
+    ? item.stickBonus
+    : weaponDamageByRarity(2 + level * 2, item.rarity);
+  return bonus * attackMult(item);
 }
 
 function stickDamage(player, item) {
   const count = Math.max(1, countEquippedOfType(player, "stick"));
-  return scaled(player, 6 + count * stickBonusOf(item));
+  const level = weaponRarityLevel(item.rarity);
+  const unscaled = (Number.isFinite(item.baseDamage) ? item.baseDamage : 6) + count * (2 + level * 2);
+  return scaled(player, weaponDamageByRarity(unscaled, item.rarity) * attackMult(item));
+}
+
+function weaponHitDamage(item, player) {
+  if (!item) {
+    return 0;
+  }
+  if (item.type === "stick") {
+    return stickDamage(player, item);
+  }
+  return scaled(player, rarityDamage(item) * attackMult(item));
+}
+
+export function itemReloadTime(item, player) {
+  if (!item) {
+    return MIN_RELOAD_TIME;
+  }
+  return Math.max(MIN_RELOAD_TIME, item.reload * reloadStatMultiplier(player));
 }
 
 function knockbackMonster(monster, fromX, fromY, force) {
@@ -70,9 +105,9 @@ function closest(player, targets) {
 }
 
 function fireFang(item, player, target, onResolved, monsterList) {
-  const dealt = applyMonsterHit(target, scaled(player, item.damage), player, onResolved);
+  const dealt = applyMonsterHit(target, weaponHitDamage(item, player), player, onResolved);
   if (dealt > 0) {
-    healPlayer(player, dealt * item.lifesteal * ((player.healRate || PLAYER_REGEN) / PLAYER_REGEN));
+    healPlayer(player, fangHealByRarity(item.rarity));
     addEffect({
       type: "fang",
       x: target.x,
@@ -83,7 +118,7 @@ function fireFang(item, player, target, onResolved, monsterList) {
 }
 
 function fireMucus(item, player, target, onResolved) {
-  const dealt = applyMonsterHit(target, scaled(player, item.damage), player, onResolved);
+  const dealt = applyMonsterHit(target, weaponHitDamage(item, player), player, onResolved);
   if (dealt > 0 || canBeHit(target)) {
     applySlow(target, item.slow, item.slowDuration);
     addEffect({
@@ -96,7 +131,7 @@ function fireMucus(item, player, target, onResolved) {
 }
 
 function fireBolt(item, target, onResolved, player) {
-  const amount = item.type === "stick" ? stickDamage(player, item) : scaled(player, item.damage);
+  const amount = weaponHitDamage(item, player);
   const dealt = applyMonsterHit(target, amount, player, onResolved);
   if (dealt > 0) {
     if (item.type === "head") {
@@ -129,7 +164,7 @@ function firePotion(item, player, targets, onResolved) {
     radius: item.aoeRadius * (player.rangeMult || 1)
   });
 
-  const amount = scaled(player, item.damage);
+  const amount = weaponHitDamage(item, player);
   const aoe = item.aoeRadius * (player.rangeMult || 1);
   for (const target of targets) {
     const dist = Math.hypot(center.x - target.x, center.y - target.y);
@@ -174,7 +209,7 @@ export function tickCombat(player, monsterList, dt, onResolved) {
       }
     }
 
-    slot.cooldown = item.reload * (player.reloadMult || 1);
+    slot.cooldown = itemReloadTime(item, player);
   }
 
   for (let i = effects.length - 1; i >= 0; i--) {
@@ -186,13 +221,7 @@ export function tickCombat(player, monsterList, dt, onResolved) {
 }
 
 export function weaponDamage(item, player) {
-  if (!item) {
-    return 0;
-  }
-  if (item.type === "stick") {
-    return stickDamage(player, item);
-  }
-  return scaled(player, item.damage);
+  return weaponHitDamage(item, player);
 }
 
 export function describeWeapon(item, player) {
@@ -203,11 +232,15 @@ export function describeWeapon(item, player) {
   const lines = [`${item.label} · ${item.rarity}`];
   lines.push(`Damage ${weaponDamage(item, player).toFixed(1)}`);
   lines.push(`Range ${Math.round(item.range * (player.rangeMult || 1))}`);
-  lines.push(`Reload ${(item.reload * (player.reloadMult || 1)).toFixed(2)}s`);
+  lines.push(`Reload ${itemReloadTime(item, player).toFixed(2)}s`);
+
+  if (item.rarity === JOOMONG_RARITY) {
+    const count = Math.max(0, Math.floor(item.enhanceCount || 0));
+    lines.push(`Enhance ${count} · x${attackMult(item).toFixed(4)}`);
+  }
 
   if (item.type === "fang") {
-    const heal = (item.lifesteal || 0) * ((player.healRate || PLAYER_REGEN) / PLAYER_REGEN);
-    lines.push(`Lifesteal ${Math.round(heal * 100)}%`);
+    lines.push(`Heal ${fangHealByRarity(item.rarity).toFixed(1)}`);
   }
   if (item.type === "mucus") {
     lines.push(`Slow ${Math.round((item.slow || 0) * 100)}% for ${(item.slowDuration || 0).toFixed(1)}s`);
