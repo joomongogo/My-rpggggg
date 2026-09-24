@@ -37,6 +37,16 @@ export const ITEM_RELOAD = {
   stick: 0.5
 };
 
+export const ITEM_DURABILITY = {
+  fang: 100,
+  mucus: 110,
+  potion: 160,
+  dart: 80,
+  boulder: 200,
+  head: 120,
+  stick: 90
+};
+
 export const ITEM_RANGE = {
   fang: 55,
   mucus: 90,

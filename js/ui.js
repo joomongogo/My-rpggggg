@@ -1,6 +1,6 @@
 import { getAllBestiaryEntries, getTotalKills, resetBestiary, TYPE_LABEL } from "./bestiary.js";
 import { ACTIVE_RADIUS, DAMAGE_STAT_BONUS, FUSION_COUNT, RELOAD_STAT_GROWTH } from "./constants.js";
-import { describeWeapon, itemReloadTime, weaponDamage } from "./combat.js";
+import { describeWeapon, itemReloadTime, weaponDamage, weaponStickBonus } from "./combat.js";
 import { bindDrag } from "./drag.js";
 import { paintItemIcon } from "./draw.js";
 import {
@@ -12,17 +12,23 @@ import {
   fuseItems,
   getFusionChance
 } from "./fusion.js";
-import { createItem, itemLabel, WEAPON_TYPES } from "./items.js";
+import { canExtraHit, createItem, itemLabel, WEAPON_TYPES } from "./items.js";
 import { inventory } from "./loadout.js";
 import { monsters } from "./monsters.js";
 import {
+  fangHealOf,
+  formatCompact,
   getHigherRarity,
   getRarityClass,
+  itemMaxDurability,
+  JOOMONG_CRAFT_GROWTH,
   JOOMONG_ENHANCE_GROWTH,
   JOOMONG_RARITY,
+  JOOMONG_RELOAD_GROWTH,
   joomongEnhanceMult,
   X_RARITY
 } from "./rarity.js";
+import { getSetting, setSetting } from "./settings.js";
 import { isTouchUiVisible } from "./touch.js";
 import { scheduleSave, wipeSave, writeSave } from "./save.js";
 import { enterArea, getArea } from "./areas.js";
@@ -289,6 +295,13 @@ function renderInventory() {
     tile.dataset.itemRarity = group.rarity;
     tile.title = `${group.label} ${group.rarity}`;
     tile.appendChild(makeIcon(group.type, group.rarity));
+    const dura = document.createElement("span");
+    dura.className = "item-dura";
+    const shown = group.item || createItem(group.type, group.rarity);
+    const maxDura = itemMaxDurability(shown);
+    const curDura = Math.max(0, Number(shown.durability) || 0);
+    dura.textContent = `${formatCompact(curDura)}/${formatCompact(maxDura)}`;
+    tile.appendChild(dura);
     bindItemTooltip(tile, () => group.item || createItem(group.type, group.rarity));
     if (group.count > 1) {
       const count = document.createElement("span");
@@ -307,6 +320,11 @@ function renderFuse(player) {
   }
 
   list.innerHTML = "";
+
+  for (const type of WEAPON_TYPES) {
+    list.appendChild(buildJoomongRow(player, type));
+  }
+
   const groups = groupInventory().filter((group) => canFuse(group.type, group.rarity));
 
   for (const group of groups) {
@@ -351,17 +369,6 @@ function renderFuse(player) {
     row.appendChild(fuse);
     list.appendChild(row);
   }
-
-  for (const type of WEAPON_TYPES) {
-    list.appendChild(buildJoomongRow(player, type));
-  }
-
-  if (groups.length === 0 && list.childElementCount === 0) {
-    const empty = document.createElement("div");
-    empty.className = "inventory-empty";
-    empty.textContent = `Need ${FUSION_COUNT} of the same weapon.`;
-    list.appendChild(empty);
-  }
 }
 
 function buildJoomongRow(player, type) {
@@ -387,23 +394,45 @@ function buildJoomongRow(player, type) {
     const nextItem = createItem(type, JOOMONG_RARITY, { enhanceCount: count + 1 });
     const before = weaponDamage(owned, player);
     const after = weaponDamage(nextItem, player);
+    const reloadBefore = itemReloadTime(owned, player);
+    const reloadAfter = itemReloadTime(nextItem, player);
+    const oldMax = itemMaxDurability(owned);
+    const nextMax = itemMaxDurability(nextItem);
+    const ratio = oldMax > 0 ? Math.max(0, Number(owned.durability) || 0) / oldMax : 1;
+    const nextCur = Math.max(0, Math.min(nextMax, ratio * nextMax));
+    let extra = "";
+    if (type === "fang") {
+      extra = `<br>Heal ${fangHealOf(owned).toFixed(1)} → ${fangHealOf(nextItem).toFixed(1)}`;
+    }
+    if (type === "stick") {
+      extra = `<br>Stick bonus +${weaponStickBonus(owned).toFixed(1)} → +${weaponStickBonus(nextItem).toFixed(1)}`;
+    }
     meta.innerHTML =
-      `${JOOMONG_RARITY} · Enhance ${count} · x${nowMult.toFixed(4)}<br>` +
+      `${JOOMONG_RARITY} · Craft x${JOOMONG_CRAFT_GROWTH} · Enhance ${count} · x${nowMult.toFixed(4)}<br>` +
       `Have ${haveX} ${X_RARITY} ${label} · need 1<br>` +
-      `${X_RARITY} ${label} x1 → attack x${JOOMONG_ENHANCE_GROWTH.toFixed(2)} · 100%<br>` +
-      `Damage ${before.toFixed(1)} → ${after.toFixed(1)}`;
+      `${X_RARITY} ${label} x1 → attack x${JOOMONG_ENHANCE_GROWTH.toFixed(2)} · reload x${JOOMONG_RELOAD_GROWTH} · 100%<br>` +
+      `Damage ${before.toFixed(1)} → ${after.toFixed(1)}<br>` +
+      `Reload ${reloadBefore.toFixed(4)}s → ${reloadAfter.toFixed(4)}s<br>` +
+      `내구도 ${formatCompact(owned.durability)}/${formatCompact(oldMax)} → ${formatCompact(nextCur)}/${formatCompact(nextMax)}` + extra;
   } else {
+    const previewItem = createItem(type, JOOMONG_RARITY, { enhanceCount: 0 });
+    const xItem = createItem(type, X_RARITY);
+    const xDamage = weaponDamage(xItem, player);
+    const crafted = weaponDamage(previewItem, player);
     meta.innerHTML =
       `Have ${haveX} ${X_RARITY} ${label} · need ${FUSION_COUNT}<br>` +
       `${FUSION_COUNT} identical ${X_RARITY} ${label} → 1 ${JOOMONG_RARITY} ${label}<br>` +
-      `Success 100% · enhance 0 · x1.0000`;
+      `Success 100% · attack ${xDamage.toFixed(1)} x${JOOMONG_CRAFT_GROWTH} = ${crafted.toFixed(1)}<br>` +
+      `내구도 ${formatCompact(itemMaxDurability(xItem))} x${JOOMONG_CRAFT_GROWTH} = ${formatCompact(itemMaxDurability(previewItem))}`;
   }
   info.appendChild(meta);
 
   const preview = document.createElement("div");
   preview.className = `fuse-preview ${getRarityClass(owned ? JOOMONG_RARITY : X_RARITY)}`;
   preview.appendChild(makeIcon(type, owned ? JOOMONG_RARITY : X_RARITY, 44));
-  bindItemTooltip(preview, () => owned || createItem(type, X_RARITY));
+  bindItemTooltip(preview, () => owned || createItem(type, JOOMONG_RARITY, { enhanceCount: 0 }));
+
+  wrap.dataset.joomongType = type;
 
   const button = document.createElement("button");
   button.type = "button";
@@ -419,9 +448,32 @@ function buildJoomongRow(player, type) {
     info.appendChild(why);
   }
 
+  const runEnhanceFast = () => {
+    if (!status.ok || craftLock) {
+      return;
+    }
+    pendingCraft = () => enhanceJoomong(player, type);
+    finishCraft(player);
+  };
+
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    if (!owned || !getSetting("rapidEnhance")) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    runEnhanceFast();
+  });
+
   button.addEventListener("click", (event) => {
     event.stopPropagation();
     if (!status.ok || craftLock) {
+      return;
+    }
+    if (owned && getSetting("rapidEnhance")) {
       return;
     }
     openCraftConfirm(player, type, Boolean(owned), label, haveX, owned);
@@ -467,20 +519,36 @@ function openCraftConfirm(player, type, isEnhance, label, haveX, owned) {
 
   if (isEnhance) {
     const count = Math.max(0, Math.floor(owned.enhanceCount || 0));
+    const nextItem = createItem(type, JOOMONG_RARITY, { enhanceCount: count + 1 });
     const before = weaponDamage(owned, player);
-    const after = weaponDamage(createItem(type, JOOMONG_RARITY, { enhanceCount: count + 1 }), player);
+    const after = weaponDamage(nextItem, player);
+    const oldMax = itemMaxDurability(owned);
+    const nextMax = itemMaxDurability(nextItem);
+    const nextCur = oldMax > 0 ? Math.min(nextMax, (Math.max(0, Number(owned.durability) || 0) / oldMax) * nextMax) : nextMax;
     title.textContent = `Enhance ${JOOMONG_RARITY} ${label}?`;
+    let extra = "";
+    if (owned.type === "fang") {
+      extra = `<br>Heal ${fangHealOf(owned).toFixed(1)} → ${fangHealOf(nextItem).toFixed(1)}.`;
+    }
+    if (owned.type === "stick") {
+      extra = `<br>Stick bonus +${weaponStickBonus(owned).toFixed(1)} → +${weaponStickBonus(nextItem).toFixed(1)}.`;
+    }
     body.innerHTML =
       `Sacrifice 1 ${X_RARITY} ${label} (have ${haveX}).<br>` +
-      `Attack x${JOOMONG_ENHANCE_GROWTH.toFixed(2)} · success 100%.<br>` +
+      `Attack x${JOOMONG_ENHANCE_GROWTH.toFixed(2)} · Reload x${JOOMONG_RELOAD_GROWTH} (−0.25%) · success 100%.<br>` +
       `Enhance ${count} → ${count + 1}.<br>` +
-      `Damage ${before.toFixed(1)} → ${after.toFixed(1)}.`;
+      `Damage ${before.toFixed(1)} → ${after.toFixed(1)}.<br>` +
+      `Reload ${itemReloadTime(owned, player).toFixed(4)}s → ${itemReloadTime(nextItem, player).toFixed(4)}s.<br>` +
+      `내구도 ${formatCompact(owned.durability)}/${formatCompact(oldMax)} → ${formatCompact(nextCur)}/${formatCompact(nextMax)}.` + extra;
     pendingCraft = () => enhanceJoomong(player, type);
   } else {
+    const previewItem = createItem(type, JOOMONG_RARITY, { enhanceCount: 0 });
+    const xDamage = weaponDamage(createItem(type, X_RARITY), player);
+    const crafted = weaponDamage(previewItem, player);
     title.textContent = `Craft ${JOOMONG_RARITY} ${label}?`;
     body.innerHTML =
       `${FUSION_COUNT} identical ${X_RARITY} ${label} → 1 ${JOOMONG_RARITY} ${label}.<br>` +
-      `Have ${haveX}. Success 100%. Enhance 0 · x1.0000.`;
+      `Have ${haveX}. Success 100%. Attack ${xDamage.toFixed(1)} x${JOOMONG_CRAFT_GROWTH} = ${crafted.toFixed(1)}.`;
     pendingCraft = () => craftJoomong(player, type);
   }
 
@@ -528,7 +596,7 @@ function renderBestiary() {
     } else {
       card.innerHTML =
         `<div class="bestiary-name">${entry.name}</div>` +
-        `<div class="bestiary-meta">Kills ${entry.kills} · HP ${entry.hp} · Touch ${entry.contact}/s</div>` +
+        `<div class="bestiary-meta">Kills ${entry.kills} · HP ${formatCompact(entry.hp)} · Touch ${formatCompact(entry.contact)}/s · Hardness ${formatCompact(entry.hardness)}</div>` +
         `<div class="bestiary-blurb">${entry.blurb}</div>`;
     }
     list.appendChild(card);
@@ -659,7 +727,7 @@ function syncBossBar(player) {
     fill.style.width = `${ratio * 100}%`;
   }
   if (text) {
-    text.textContent = `${Math.ceil(boss.hp)} / ${Math.ceil(boss.maxHp)}`;
+    text.textContent = `${formatCompact(Math.ceil(boss.hp))} / ${formatCompact(Math.ceil(boss.maxHp))} · Hard ${formatCompact(boss.hardness)}`;
   }
 }
 
@@ -751,6 +819,14 @@ export function bindUi(player, hooks = {}) {
     pendingCraft = null;
     craftModal?.classList.remove("visible");
   });
+
+  const rapidEnhance = document.getElementById("rapid-enhance");
+  if (rapidEnhance) {
+    rapidEnhance.checked = getSetting("rapidEnhance") === true;
+    rapidEnhance.addEventListener("change", () => {
+      setSetting("rapidEnhance", rapidEnhance.checked);
+    });
+  }
 
   renderRushChoices(player);
   renderLevelPanel(player);
@@ -850,9 +926,10 @@ export function syncUi(player) {
     const name = button.querySelector(".slot-name");
     const meta = button.querySelector(".slot-meta");
     const cool = button.querySelector(".slot-cool");
+    const dura = button.querySelector(".slot-dura");
     button.className = button.className
       .split(" ")
-      .filter((cls) => cls && !cls.startsWith("rarity-"))
+      .filter((cls) => cls && !cls.startsWith("rarity-") && cls !== "no-extra")
       .join(" ");
     button.classList.toggle("empty", !slot.item);
 
@@ -862,18 +939,27 @@ export function syncUi(player) {
       if (cool) {
         cool.style.width = "0%";
       }
+      if (dura) {
+        dura.style.width = "0%";
+      }
       button.style.borderColor = "rgba(255,255,255,0.35)";
       return;
     }
 
     button.classList.add(getRarityClass(slot.item.rarity));
+    const maxDura = Math.max(itemMaxDurability(slot.item), 1);
+    const curDura = Math.max(0, Number(slot.item.durability) || 0);
+    button.classList.toggle("no-extra", !canExtraHit(slot.item));
     name.textContent = slot.item.label;
-    meta.textContent = slot.item.rarity;
+    meta.textContent = `${slot.item.rarity} · ${formatCompact(curDura)}/${formatCompact(maxDura)} · ${canExtraHit(slot.item) ? "extra" : "no extra"}`;
     button.style.borderColor = "";
     const reload = itemReloadTime(slot.item, player);
     const ratio = reload <= 0 ? 1 : 1 - slot.cooldown / reload;
     if (cool) {
       cool.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
+    }
+    if (dura) {
+      dura.style.width = `${Math.max(0, Math.min(1, curDura / maxDura)) * 100}%`;
     }
   });
 

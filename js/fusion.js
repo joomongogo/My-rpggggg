@@ -1,5 +1,5 @@
 import { FUSION_COUNT } from "./constants.js";
-import { createItem, itemLabel, WEAPON_TYPES } from "./items.js";
+import { applyEnhanceDurability, createItem, itemLabel, WEAPON_TYPES } from "./items.js";
 import { inventory } from "./loadout.js";
 import { getHigherRarity, JOOMONG_ENHANCE_GROWTH, JOOMONG_RARITY, joomongEnhanceMult, X_RARITY } from "./rarity.js";
 
@@ -196,7 +196,7 @@ export function enhanceJoomong(player, type) {
     if (taken.length < 1) {
       return { ok: false, reason: "not-enough" };
     }
-    status.item.enhanceCount = Math.max(0, Math.floor(status.item.enhanceCount || 0)) + 1;
+    applyEnhanceDurability(status.item);
     console.log("[joomong] enhance", type, status.item.enhanceCount, joomongEnhanceMult(status.item));
     return { ok: true, item: status.item, enhanceCount: status.item.enhanceCount };
   });

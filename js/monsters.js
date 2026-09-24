@@ -9,6 +9,7 @@ import {
   MONSTER_STAT_GROWTH,
   WEAPON_DAMAGE_GROWTH,
   getRarityIndex,
+  monsterHardnessByRarity,
   scaleByRarity
 } from "./rarity.js";
 import { damagePlayer } from "./player.js";
@@ -17,13 +18,13 @@ import { tryStartUndead, updateZombie } from "./zombie.js";
 import { isWitchCasting, updateWitch } from "./witch.js";
 
 export const TYPE_BASE = {
-  slime: { hp: 40, contact: 18, speed: 2.7, size: 22, exp: 12 },
-  zombie: { hp: 80, contact: 24, speed: 2.1, size: 26, exp: 20 },
-  witch: { hp: 55, contact: 10, speed: 2.2, size: 24, exp: 28 },
-  bat: { hp: 22, contact: 14, speed: 3.2, size: 16, exp: 16 },
-  golem: { hp: 480, contact: 28, speed: 1.2, size: 34, exp: 36 },
-  dracula: { hp: 90, contact: 26, speed: 2.6, size: 26, exp: 32 },
-  leafbug: { hp: 18, contact: 12, speed: 3.5, size: 14, exp: 14 }
+  slime: { hp: 40, contact: 18, speed: 2.7, size: 22, exp: 12, hardness: 4 },
+  zombie: { hp: 80, contact: 24, speed: 2.1, size: 26, exp: 20, hardness: 8 },
+  witch: { hp: 55, contact: 10, speed: 2.2, size: 24, exp: 28, hardness: 6 },
+  bat: { hp: 22, contact: 14, speed: 3.2, size: 16, exp: 16, hardness: 3 },
+  golem: { hp: 480, contact: 28, speed: 1.2, size: 34, exp: 36, hardness: 24 },
+  dracula: { hp: 90, contact: 26, speed: 2.6, size: 26, exp: 32, hardness: 10 },
+  leafbug: { hp: 18, contact: 12, speed: 3.5, size: 14, exp: 14, hardness: 2 }
 };
 
 let nextId = 1;
@@ -49,6 +50,7 @@ export function createMonster(type, x, y, rarity) {
     maxHp: hp,
     expReward: Math.round(scaleByRarity(base.exp, rarity, WEAPON_DAMAGE_GROWTH)),
     contactDamage: scaleByRarity(base.contact, rarity, MONSTER_ATK_GROWTH),
+    hardness: monsterHardnessByRarity(base.hardness, rarity),
     alive: true,
     finished: false,
     undead: false,
@@ -64,6 +66,17 @@ export function createMonster(type, x, y, rarity) {
     attackTimer: 0.3 + Math.random() * 0.4,
     ephemeral: false
   };
+}
+
+export function monsterHardness(monster) {
+  if (!monster) {
+    return 0;
+  }
+  if (Number.isFinite(monster.hardness)) {
+    return Math.max(0, monster.hardness);
+  }
+  const base = TYPE_BASE[monster.type];
+  return monsterHardnessByRarity(base?.hardness || 5, monster.rarity);
 }
 
 export function canBeHit(monster) {

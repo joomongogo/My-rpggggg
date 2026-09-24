@@ -24,6 +24,12 @@ function serializeItem(item) {
     return null;
   }
   const spec = { type: item.type, rarity: item.rarity, id: item.id };
+  if (Number.isFinite(item.baseDurability)) {
+    spec.baseDurability = item.baseDurability;
+  }
+  if (Number.isFinite(item.durability)) {
+    spec.durability = item.durability;
+  }
   if (item.rarity === JOOMONG_RARITY) {
     spec.enhanceCount = Math.max(0, Math.floor(item.enhanceCount || 0));
   }
@@ -35,6 +41,12 @@ function restoreItem(spec) {
     return null;
   }
   const extras = { id: spec.id };
+  if (Number.isFinite(spec.baseDurability)) {
+    extras.baseDurability = spec.baseDurability;
+  }
+  if (Number.isFinite(spec.durability)) {
+    extras.durability = spec.durability;
+  }
   if (spec.rarity === JOOMONG_RARITY) {
     extras.enhanceCount = Math.max(0, Math.floor(spec.enhanceCount || 0));
   }

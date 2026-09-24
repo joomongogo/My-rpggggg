@@ -441,12 +441,17 @@ export function drawEffects(ctx, canvas) {
       ctx.fillStyle = "rgba(210, 170, 130, 0.28)";
       ctx.fill();
       ctx.strokeStyle = "#f0d2b4";
+    } else if (effect.type === "extra") {
+      ctx.fillStyle = "rgba(62, 230, 193, 0.22)";
+      ctx.fill();
+      ctx.strokeStyle = "#3ee6c1";
+      ctx.lineWidth = 4;
     } else if (effect.type === "stick") {
       ctx.strokeStyle = "#c4a06a";
     } else {
       ctx.strokeStyle = "#ffe8e0";
     }
-    ctx.lineWidth = 3;
+    ctx.lineWidth = effect.type === "extra" ? 4 : 3;
     ctx.stroke();
     ctx.restore();
   }

@@ -3,6 +3,8 @@ import {
   MONSTER_ATK_GROWTH,
   MONSTER_STAT_GROWTH,
   WORLD_RARITIES,
+  formatCompact,
+  monsterHardnessByRarity,
   scaleByRarity
 } from "./rarity.js";
 
@@ -88,6 +90,7 @@ export function getBestiaryEntry(type, rarity) {
     unlocked: count > 0,
     hp: Math.round(scaleByRarity(base.hp, rarity, MONSTER_STAT_GROWTH)),
     contact: Math.round(scaleByRarity(base.contact, rarity, MONSTER_ATK_GROWTH)),
+    hardness: Math.round(monsterHardnessByRarity(base.hardness, rarity)),
     blurb: TYPE_BLURB[type]
   };
 }

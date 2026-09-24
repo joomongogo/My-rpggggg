@@ -2,7 +2,9 @@ import { FANG_HEAL } from "./constants.js";
 
 export const JOOMONG_RARITY = "jo0MOnG";
 export const X_RARITY = "X_";
+export const JOOMONG_CRAFT_GROWTH = 3;
 export const JOOMONG_ENHANCE_GROWTH = 1.02;
+export const JOOMONG_RELOAD_GROWTH = 0.9975;
 
 export const RARITY_ORDER = [
   "Basic",
@@ -34,6 +36,8 @@ const RARITY_DATA = {
 
 export const MONSTER_STAT_GROWTH = 7;
 export const WEAPON_DAMAGE_GROWTH = 3;
+export const WEAPON_DURABILITY_GROWTH = 3;
+export const MONSTER_HARDNESS_GROWTH = 4;
 export const MONSTER_ATK_GROWTH = 1.4;
 export const FANG_HEAL_GROWTH = 1.4;
 export const PLAYER_DAMAGE_STAT_GROWTH = 1.08;
@@ -80,6 +84,49 @@ export function weaponDamageByRarity(baseDamage, rarity) {
   return baseDamage * getWeaponDamageMult(rarity);
 }
 
+export function getWeaponDurabilityMult(rarity) {
+  return rarityGrowth(weaponRarityLevel(rarity), WEAPON_DURABILITY_GROWTH);
+}
+
+export function itemMaxDurability(item) {
+  if (!item) {
+    return 0;
+  }
+  const base = Number.isFinite(item.baseDurability) ? item.baseDurability : 100;
+  return base * getWeaponDurabilityMult(item.rarity) * joomongCraftMult(item.rarity) * joomongEnhanceMult(item);
+}
+
+export function getMonsterHardnessMult(rarity) {
+  return rarityGrowth(weaponRarityLevel(rarity), MONSTER_HARDNESS_GROWTH);
+}
+
+export function monsterHardnessByRarity(baseHardness, rarity) {
+  return baseHardness * getMonsterHardnessMult(rarity);
+}
+
+export function formatCompact(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return "0";
+  }
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1e9) {
+    return `${sign}${(abs / 1e9).toFixed(2)}B`;
+  }
+  if (abs >= 1e6) {
+    return `${sign}${(abs / 1e6).toFixed(2)}M`;
+  }
+  if (abs >= 1e3) {
+    return `${sign}${(abs / 1e3).toFixed(1)}K`;
+  }
+  return `${sign}${Math.round(abs)}`;
+}
+
+export function joomongCraftMult(rarity) {
+  return rarity === JOOMONG_RARITY ? JOOMONG_CRAFT_GROWTH : 1;
+}
+
 export function joomongEnhanceMult(item) {
   if (!item || item.rarity !== JOOMONG_RARITY) {
     return 1;
@@ -88,8 +135,30 @@ export function joomongEnhanceMult(item) {
   return JOOMONG_ENHANCE_GROWTH ** count;
 }
 
+export function joomongReloadMult(item) {
+  if (!item || item.rarity !== JOOMONG_RARITY) {
+    return 1;
+  }
+  const count = Math.max(0, Math.floor(item.enhanceCount || 0));
+  return JOOMONG_RELOAD_GROWTH ** count;
+}
+
+export function joomongAttackMult(item) {
+  if (!item) {
+    return 1;
+  }
+  return joomongCraftMult(item.rarity) * joomongEnhanceMult(item);
+}
+
 export function fangHealByRarity(rarity) {
   return scaleByRarity(FANG_HEAL, rarity, FANG_HEAL_GROWTH);
+}
+
+export function fangHealOf(item) {
+  if (!item) {
+    return 0;
+  }
+  return fangHealByRarity(item.rarity) * joomongEnhanceMult(item);
 }
 
 export function getWeaponMult(rarity) {

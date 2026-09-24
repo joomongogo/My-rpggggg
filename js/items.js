@@ -1,5 +1,5 @@
-import { ITEM_RANGE, ITEM_RELOAD } from "./constants.js";
-import { JOOMONG_RARITY, weaponDamageByRarity, weaponRarityLevel } from "./rarity.js";
+import { ITEM_DURABILITY, ITEM_RANGE, ITEM_RELOAD } from "./constants.js";
+import { itemMaxDurability, JOOMONG_RARITY, weaponDamageByRarity, weaponRarityLevel } from "./rarity.js";
 
 const BASE = {
   fang: {
@@ -74,6 +74,10 @@ export function createItem(type, rarity, extras = {}) {
     ? Math.max(0, Math.floor(Number(extras.enhanceCount) || 0))
     : 0;
 
+  const baseDurability = Number.isFinite(extras.baseDurability)
+    ? extras.baseDurability
+    : ITEM_DURABILITY[type];
+
   const item = {
     id: extras.id || newItemId(),
     type,
@@ -82,10 +86,16 @@ export function createItem(type, rarity, extras = {}) {
     color: base.color,
     enhanceCount,
     baseDamage: base.damage,
+    baseDurability,
     range: ITEM_RANGE[type] * (1 + level * 0.03),
     reload: ITEM_RELOAD[type],
     damage: weaponDamageByRarity(base.damage, rarity)
   };
+
+  item.maxDurability = itemMaxDurability(item);
+  item.durability = Number.isFinite(extras.durability)
+    ? Math.max(0, Math.min(item.maxDurability, extras.durability))
+    : item.maxDurability;
 
   if (type === "mucus") {
     item.slow = Math.min(0.7, base.slow * (1 + level * 0.08));
@@ -104,6 +114,59 @@ export function createItem(type, rarity, extras = {}) {
     item.stickBonus = weaponDamageByRarity(2 + level * 2, rarity);
   }
 
+  return item;
+}
+
+export function currentDurability(item) {
+  if (!item) {
+    return 0;
+  }
+  return Math.max(0, Number(item.durability) || 0);
+}
+
+export function canExtraHit(item) {
+  return currentDurability(item) > 0;
+}
+
+export function syncItemDurability(item) {
+  if (!item) {
+    return 0;
+  }
+  const max = itemMaxDurability(item);
+  item.maxDurability = max;
+  item.durability = Math.max(0, Math.min(max, currentDurability(item)));
+  return max;
+}
+
+export function spendDurability(item, cost) {
+  if (!item) {
+    return 0;
+  }
+  const spent = Math.max(0, Number(cost) || 0);
+  item.durability = Math.max(0, currentDurability(item) - spent);
+  return item.durability;
+}
+
+export function restoreDurability(item) {
+  if (!item) {
+    return 0;
+  }
+  const max = itemMaxDurability(item);
+  item.maxDurability = max;
+  item.durability = max;
+  return max;
+}
+
+export function applyEnhanceDurability(item) {
+  if (!item) {
+    return item;
+  }
+  const oldMax = itemMaxDurability(item);
+  const ratio = oldMax > 0 ? currentDurability(item) / oldMax : 1;
+  item.enhanceCount = Math.max(0, Math.floor(item.enhanceCount || 0)) + 1;
+  const newMax = itemMaxDurability(item);
+  item.maxDurability = newMax;
+  item.durability = Math.max(0, Math.min(newMax, ratio * newMax));
   return item;
 }
 
