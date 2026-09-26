@@ -249,9 +249,14 @@ export function spawnMonster(type, x, y, rarity, homeZone, extra = {}) {
   if (extra.hpMult) {
     monster.hp *= extra.hpMult;
     monster.maxHp *= extra.hpMult;
+    monster.rushHpMult = extra.hpMult;
   }
   if (extra.atkMult) {
     monster.contactDamage *= extra.atkMult;
+  }
+  if (extra.expMult && extra.expMult !== 1) {
+    monster.expReward = Math.round(monster.expReward * extra.expMult);
+    monster.rushExpMult = extra.expMult;
   }
   monsters.push(monster);
   return monster;
@@ -333,7 +338,11 @@ export function spawnSplitSlimes(specs, parent) {
         y = nearby.y;
       }
     }
-    created.push(spawnMonster("slime", x, y, spec.rarity, homeZone, { ephemeral }));
+    created.push(spawnMonster("slime", x, y, spec.rarity, homeZone, {
+      ephemeral,
+      hpMult: parent?.rushHpMult,
+      expMult: parent?.rushExpMult
+    }));
   }
   return created;
 }

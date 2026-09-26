@@ -26,17 +26,21 @@ export function getSlotWorldPos(player, index) {
   };
 }
 
-export function addItemToPlayer(player, item) {
+export function addItemToPlayer(player, item, quiet = false) {
   const empty = player.loadout.find((slot) => !slot.item);
   if (empty) {
     empty.item = item;
     empty.cooldown = 0;
-    console.log("[loadout] equipped", item.type, item.rarity);
+    if (!quiet) {
+      console.log("[loadout] equipped", item.type, item.rarity);
+    }
     return "equipped";
   }
 
   inventory.push(item);
-  console.log("[loadout] stored", item.type, item.rarity);
+  if (!quiet) {
+    console.log("[loadout] stored", item.type, item.rarity);
+  }
   return "stored";
 }
 

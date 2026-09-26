@@ -1,5 +1,5 @@
 import { getAllBestiaryEntries, getTotalKills, resetBestiary, TYPE_LABEL } from "./bestiary.js";
-import { ACTIVE_RADIUS, DAMAGE_STAT_BONUS, FUSION_COUNT, RELOAD_STAT_GROWTH } from "./constants.js";
+import { ACTIVE_RADIUS, FUSION_COUNT } from "./constants.js";
 import { describeWeapon, itemReloadTime, weaponDamage, weaponStickBonus } from "./combat.js";
 import { bindDrag } from "./drag.js";
 import { paintItemIcon } from "./draw.js";
@@ -8,6 +8,7 @@ import {
   craftJoomong,
   craftStatus,
   enhanceJoomong,
+  enhanceJoomongAll,
   enhanceStatus,
   fuseItems,
   getFusionChance
@@ -32,8 +33,17 @@ import { getSetting, setSetting } from "./settings.js";
 import { isTouchUiVisible } from "./touch.js";
 import { scheduleSave, wipeSave, writeSave } from "./save.js";
 import { enterArea, getArea } from "./areas.js";
-import { applyStatChoice, refundStats, resetPlayer, spentStatPoints, STAT_CHOICES } from "./player.js";
-import { getRushDifficulties, getRushTimeLeft, isRushActive, stopRush } from "./rush.js";
+import {
+  applyStatChoice,
+  damageStatMultiplier,
+  getStatChoices,
+  refundStats,
+  reloadStatMultiplier,
+  resetPlayer,
+  spentStatPoints,
+  statUpgradeBonus
+} from "./player.js";
+import { getRushDifficulties, getRushDifficulty, getRushTimeLeft, isRushActive, stopRush } from "./rush.js";
 
 let inventoryOpen = false;
 let fuseOpen = false;
@@ -63,21 +73,41 @@ function setBar(fillId, textId, ratio, text) {
 
 function groupInventory() {
   const groups = [];
+  const index = new Map();
   for (const item of inventory) {
-    const existing = groups.find((group) => group.type === item.type && group.rarity === item.rarity);
+    const key = `${item.type}|${item.rarity}`;
+    const existing = index.get(key);
     if (existing) {
       existing.count += 1;
     } else {
-      groups.push({
+      const group = {
         type: item.type,
         rarity: item.rarity,
         label: item.label,
         count: 1,
         item
-      });
+      };
+      index.set(key, group);
+      groups.push(group);
     }
   }
   return groups;
+}
+
+function inventorySignature(player) {
+  const tally = new Map();
+  for (const item of inventory) {
+    const key = `${item.type}|${item.rarity}|${item.enhanceCount || 0}`;
+    tally.set(key, (tally.get(key) || 0) + 1);
+  }
+  let bag = String(inventory.length);
+  for (const [key, count] of tally) {
+    bag += `;${key}:${count}`;
+  }
+  const equipped = player.loadout.map((slot) => (
+    slot.item ? `${slot.item.type}|${slot.item.rarity}|${slot.item.enhanceCount || 0}` : ""
+  )).join(",");
+  return `${bag}#${equipped}`;
 }
 
 function tooltipEl() {
@@ -202,25 +232,30 @@ function renderLevelPanel(player) {
   const spent = spentStatPoints(player);
   panel.classList.toggle("visible", statsOpen);
   if (help) {
-    help.textContent = points > 0 ? `Unspent points: ${points}` : "No unspent points.";
+    const bonus = Math.round(statUpgradeBonus(player) * 100);
+    help.textContent = points > 0
+      ? `Unspent points: ${points}. Every 10 levels, upgrades gain +1% (now +${bonus}%).`
+      : `No unspent points. Every 10 levels, upgrades gain +1% (now +${bonus}%).`;
   }
   if (current) {
     current.textContent =
-      `HP ${Math.floor(player.hp)} / ${player.maxHp}` +
-      ` · DMG x${(1 + (player.damageStat || 0) * DAMAGE_STAT_BONUS).toFixed(2)}` +
+      `HP ${Math.floor(player.hp)} / ${Math.floor(player.maxHp)}` +
+      ` · DMG x${damageStatMultiplier(player).toFixed(2)}` +
       ` · Range x${(player.rangeMult || 1).toFixed(2)}` +
       ` · Knock x${(player.knockbackMult || 1).toFixed(2)}` +
       ` · Heal ${(player.healRate || 2).toFixed(2)}/s` +
-      ` · Reload x${(RELOAD_STAT_GROWTH ** (player.reloadStat || 0)).toFixed(3)}`;
+      ` · Reload x${reloadStatMultiplier(player).toFixed(3)}`;
   }
   if (refund) {
     refund.disabled = spent <= 0;
   }
 
-  if (host.dataset.stats !== "v-dmg4-reload3") {
-    host.dataset.stats = "v-dmg4-reload3";
+  const choices = getStatChoices(player);
+  const tier = String(Math.floor((player.level || 1) / 10));
+  if (host.dataset.statTier !== tier || host.childElementCount === 0) {
+    host.dataset.statTier = tier;
     host.innerHTML = "";
-    for (const choice of STAT_CHOICES) {
+    for (const choice of choices) {
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.stat = choice.id;
@@ -236,6 +271,17 @@ function renderLevelPanel(player) {
       });
       host.appendChild(button);
     }
+  } else {
+    host.querySelectorAll("button").forEach((button) => {
+      const choice = choices.find((item) => item.id === button.dataset.stat);
+      if (!choice) {
+        return;
+      }
+      const html = `<strong>${choice.label}</strong><div>${choice.detail}</div>`;
+      if (button.innerHTML !== html) {
+        button.innerHTML = html;
+      }
+    });
   }
 
   host.querySelectorAll("button").forEach((button) => {
@@ -250,13 +296,28 @@ function renderRushChoices(player) {
     return;
   }
   host.innerHTML = "";
+  const scaleInput = document.getElementById("x-rush-scale");
+  if (scaleInput) {
+    scaleInput.value = String(getSetting("xRushScale") || 1);
+  }
   for (const diff of getRushDifficulties()) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = getRarityClass(diff.rarity);
-    button.textContent = `${diff.label} · ${diff.maxAlive} ${diff.rarity}`;
+    if (diff.rarity === X_RARITY) {
+      const n = Math.max(1, Math.floor(Number(scaleInput?.value) || 1));
+      button.textContent = `${diff.label} x${n} · HP x${n * n} · items x${n}`;
+    } else {
+      button.textContent = `${diff.label} · ${diff.maxAlive} ${diff.rarity}`;
+    }
     button.addEventListener("click", () => {
-      uiHooks.onChooseRush?.(diff.id, player);
+      const scale = diff.rarity === X_RARITY
+        ? Math.max(1, Math.floor(Number(document.getElementById("x-rush-scale")?.value) || 1))
+        : 1;
+      if (diff.rarity === X_RARITY) {
+        setSetting("xRushScale", scale);
+      }
+      uiHooks.onChooseRush?.(diff.id, scale);
     });
     host.appendChild(button);
   }
@@ -448,11 +509,11 @@ function buildJoomongRow(player, type) {
     info.appendChild(why);
   }
 
-  const runEnhanceFast = () => {
+  const runEnhance = (all) => {
     if (!status.ok || craftLock) {
       return;
     }
-    pendingCraft = () => enhanceJoomong(player, type);
+    pendingCraft = () => (all ? enhanceJoomongAll(player, type) : enhanceJoomong(player, type));
     finishCraft(player);
   };
 
@@ -465,7 +526,7 @@ function buildJoomongRow(player, type) {
     }
     event.preventDefault();
     event.stopPropagation();
-    runEnhanceFast();
+    runEnhance(false);
   });
 
   button.addEventListener("click", (event) => {
@@ -476,12 +537,36 @@ function buildJoomongRow(player, type) {
     if (owned && getSetting("rapidEnhance")) {
       return;
     }
-    openCraftConfirm(player, type, Boolean(owned), label, haveX, owned);
+    openCraftConfirm(player, type, Boolean(owned), label, haveX, owned, 1);
   });
+
+  const actions = document.createElement("div");
+  actions.className = "fuse-actions";
+  actions.appendChild(button);
+
+  if (owned) {
+    const batch = document.createElement("button");
+    batch.type = "button";
+    batch.className = "fuse-button fuse-batch";
+    batch.textContent = `일괄 ${haveX}`;
+    batch.disabled = haveX < 1;
+    batch.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (haveX < 1 || craftLock) {
+        return;
+      }
+      if (getSetting("rapidEnhance")) {
+        runEnhance(true);
+        return;
+      }
+      openCraftConfirm(player, type, true, label, haveX, owned, haveX);
+    });
+    actions.appendChild(batch);
+  }
 
   wrap.appendChild(preview);
   wrap.appendChild(info);
-  wrap.appendChild(button);
+  wrap.appendChild(actions);
   return wrap;
 }
 
@@ -509,7 +594,7 @@ function countXOwned(player, type) {
   return total;
 }
 
-function openCraftConfirm(player, type, isEnhance, label, haveX, owned) {
+function openCraftConfirm(player, type, isEnhance, label, haveX, owned, times = 1) {
   const modal = document.getElementById("craft-modal");
   const title = document.getElementById("craft-title");
   const body = document.getElementById("craft-body");
@@ -518,14 +603,17 @@ function openCraftConfirm(player, type, isEnhance, label, haveX, owned) {
   }
 
   if (isEnhance) {
+    const used = Math.max(1, Math.floor(times || 1));
     const count = Math.max(0, Math.floor(owned.enhanceCount || 0));
-    const nextItem = createItem(type, JOOMONG_RARITY, { enhanceCount: count + 1 });
+    const nextItem = createItem(type, JOOMONG_RARITY, { enhanceCount: count + used });
     const before = weaponDamage(owned, player);
     const after = weaponDamage(nextItem, player);
     const oldMax = itemMaxDurability(owned);
     const nextMax = itemMaxDurability(nextItem);
     const nextCur = oldMax > 0 ? Math.min(nextMax, (Math.max(0, Number(owned.durability) || 0) / oldMax) * nextMax) : nextMax;
-    title.textContent = `Enhance ${JOOMONG_RARITY} ${label}?`;
+    title.textContent = used > 1
+      ? `일괄 강화 ${JOOMONG_RARITY} ${label}?`
+      : `Enhance ${JOOMONG_RARITY} ${label}?`;
     let extra = "";
     if (owned.type === "fang") {
       extra = `<br>Heal ${fangHealOf(owned).toFixed(1)} → ${fangHealOf(nextItem).toFixed(1)}.`;
@@ -534,13 +622,13 @@ function openCraftConfirm(player, type, isEnhance, label, haveX, owned) {
       extra = `<br>Stick bonus +${weaponStickBonus(owned).toFixed(1)} → +${weaponStickBonus(nextItem).toFixed(1)}.`;
     }
     body.innerHTML =
-      `Sacrifice 1 ${X_RARITY} ${label} (have ${haveX}).<br>` +
-      `Attack x${JOOMONG_ENHANCE_GROWTH.toFixed(2)} · Reload x${JOOMONG_RELOAD_GROWTH} (−0.25%) · success 100%.<br>` +
-      `Enhance ${count} → ${count + 1}.<br>` +
+      `Sacrifice ${used} ${X_RARITY} ${label} (have ${haveX}).<br>` +
+      `Attack x${JOOMONG_ENHANCE_GROWTH.toFixed(2)}^${used} · success 100%.<br>` +
+      `Enhance ${count} → ${count + used}.<br>` +
       `Damage ${before.toFixed(1)} → ${after.toFixed(1)}.<br>` +
       `Reload ${itemReloadTime(owned, player).toFixed(4)}s → ${itemReloadTime(nextItem, player).toFixed(4)}s.<br>` +
       `내구도 ${formatCompact(owned.durability)}/${formatCompact(oldMax)} → ${formatCompact(nextCur)}/${formatCompact(nextMax)}.` + extra;
-    pendingCraft = () => enhanceJoomong(player, type);
+    pendingCraft = () => (used > 1 ? enhanceJoomongAll(player, type) : enhanceJoomong(player, type));
   } else {
     const previewItem = createItem(type, JOOMONG_RARITY, { enhanceCount: 0 });
     const xDamage = weaponDamage(createItem(type, X_RARITY), player);
@@ -829,6 +917,14 @@ export function bindUi(player, hooks = {}) {
   }
 
   renderRushChoices(player);
+  document.getElementById("x-rush-scale")?.addEventListener("input", () => {
+    const n = Math.max(1, Math.floor(Number(document.getElementById("x-rush-scale")?.value) || 1));
+    document.querySelectorAll("#rush-choices button").forEach((button) => {
+      if (button.classList.contains("rarity-x")) {
+        button.textContent = `X_ x${n} · HP x${n * n} · items x${n}`;
+      }
+    });
+  });
   renderLevelPanel(player);
   document.getElementById("rush-cancel")?.addEventListener("click", closeRushSelect);
 
@@ -909,8 +1005,7 @@ export function syncUi(player) {
     bagButton.textContent = `Bag ${inventory.length}`;
   }
 
-  const signature = inventory.map((item) => `${item.type}-${item.rarity}-${item.enhanceCount || 0}-${item.id || ""}`).join("|") +
-    player.loadout.map((slot) => slot.item ? `${slot.item.type}-${slot.item.rarity}-${slot.item.enhanceCount || 0}` : "").join("|");
+  const signature = inventorySignature(player);
   if (inventoryOpen && signature !== lastInventoryKey) {
     renderInventory(player);
   }
@@ -999,7 +1094,8 @@ export function syncUi(player) {
     const active = isRushActive();
     rushTimer.classList.toggle("visible", active);
     if (active) {
-      rushTimer.textContent = `RUSH ${Math.ceil(getRushTimeLeft())}s`;
+      const cfg = getRushDifficulty();
+      rushTimer.textContent = `RUSH ${cfg.label} ${Math.ceil(getRushTimeLeft())}s`;
     }
   }
 }

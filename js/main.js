@@ -20,7 +20,7 @@ import {
 import { canUsePortal, enterArea, getArea, isSafeZone, lockPortals, updatePortalLock } from "./areas.js";
 import { PORTAL_RADIUS } from "./constants.js";
 import { addItemToPlayer } from "./loadout.js";
-import { beginRush, isRushActive, takeRushReward, updateRush } from "./rush.js";
+import { beginRush, getRushScale, isRushActive, takeRushReward, updateRush } from "./rush.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -37,10 +37,10 @@ const player = createPlayer();
 enterArea("hub", player);
 bindInput();
 bindUi(player, {
-  onChooseRush(difficulty) {
+  onChooseRush(difficulty, scale) {
     closeRushSelect();
     enterArea("rush", player);
-    beginRush(player, difficulty);
+    beginRush(player, difficulty, scale);
   },
   onResetProgress() {
     scheduleSave(player);
@@ -58,7 +58,7 @@ function onMonsterResolved(monster, result) {
   scheduleSave(player);
   recordKill(monster.type, monster.rarity);
   if (result.drop) {
-    spawnDrop(result.drop, monster.rarity, monster.x, monster.y);
+    spawnDrop(result.drop, monster.rarity, monster.x, monster.y, isRushActive() ? getRushScale() : 1);
   }
   queueRespawn(monster);
 }
@@ -72,7 +72,7 @@ function concludeRush(success) {
   if (success) {
     addExperience(player, reward.exp);
     for (const item of reward.items) {
-      addItemToPlayer(player, item);
+      addItemToPlayer(player, item, true);
     }
     showRushBanner(`${reward.label} rush complete. +${reward.exp} EXP`);
   } else {

@@ -157,13 +157,14 @@ export function restoreDurability(item) {
   return max;
 }
 
-export function applyEnhanceDurability(item) {
+export function applyEnhanceDurability(item, times = 1) {
   if (!item) {
     return item;
   }
+  const n = Math.max(1, Math.floor(Number(times) || 1));
   const oldMax = itemMaxDurability(item);
   const ratio = oldMax > 0 ? currentDurability(item) / oldMax : 1;
-  item.enhanceCount = Math.max(0, Math.floor(item.enhanceCount || 0)) + 1;
+  item.enhanceCount = Math.max(0, Math.floor(item.enhanceCount || 0)) + n;
   const newMax = itemMaxDurability(item);
   item.maxDurability = newMax;
   item.durability = Math.max(0, Math.min(newMax, ratio * newMax));

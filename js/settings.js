@@ -1,15 +1,22 @@
 const STORAGE_KEY = "myrpg-settings";
 
 const DEFAULTS = {
-  rapidEnhance: false
+  rapidEnhance: false,
+  xRushScale: 1
 };
 
 let cache = null;
 
+function parseScale(value) {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
 function sanitize(data) {
   const rapidEnhance = data?.rapidEnhance === true || data?.confirmEnhance === false;
   return {
-    rapidEnhance
+    rapidEnhance,
+    xRushScale: parseScale(data?.xRushScale)
   };
 }
 

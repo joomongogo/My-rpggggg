@@ -1,7 +1,7 @@
 import { worldToScreen, isOnScreen } from "./camera.js";
 import { effects, itemReloadTime } from "./combat.js";
 import { getSlotWorldPos } from "./loadout.js";
-import { createRarityPaint, getRarityColor } from "./rarity.js";
+import { createRarityPaint, formatCompact, getRarityColor } from "./rarity.js";
 
 function drawEyes(ctx, x, y, size, dirX, dirY, count = 2) {
   const dist = Math.hypot(dirX, dirY) || 1;
@@ -409,6 +409,14 @@ export function drawDrops(ctx, canvas, dropList, time) {
     }
     const screen = worldToScreen(drop.x, drop.y);
     drawItemShape(ctx, screen.x, screen.y, 9, drop.item, time);
+    const count = Math.max(1, Math.floor(drop.count || 1));
+    if (count > 1) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 11px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(`x${formatCompact(count)}`, screen.x, screen.y + 10);
+    }
   }
 }
 

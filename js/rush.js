@@ -50,9 +50,34 @@ const DIFFICULTY = Object.fromEntries(
 const rush = {
   active: false,
   difficulty: "Basic",
+  scale: 1,
   timeLeft: RUSH_DURATION,
   spawnAcc: 0
 };
+
+export function parseRushScale(value) {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+function rushScale() {
+  if (rush.difficulty !== "X_") {
+    return 1;
+  }
+  return parseRushScale(rush.scale);
+}
+
+function scaledRushConfig() {
+  const cfg = DIFFICULTY[rush.difficulty] || DIFFICULTY.Basic;
+  const n = rushScale();
+  return {
+    ...cfg,
+    scale: n,
+    hpMult: n * n,
+    rewardMult: n,
+    label: n > 1 ? `${cfg.label} x${n}` : cfg.label
+  };
+}
 
 function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
@@ -106,14 +131,20 @@ export function getRushTimeLeft() {
 }
 
 export function getRushDifficulty() {
-  return DIFFICULTY[rush.difficulty] || DIFFICULTY.Basic;
+  return scaledRushConfig();
 }
 
-export function beginRush(player, difficulty) {
-  const cfg = DIFFICULTY[difficulty] || DIFFICULTY.Basic;
+export function getRushScale() {
+  return rushScale();
+}
+
+export function beginRush(player, difficulty, scale = 1) {
+  const base = DIFFICULTY[difficulty] || DIFFICULTY.Basic;
   rush.active = true;
-  rush.difficulty = cfg.id;
+  rush.difficulty = base.id;
+  rush.scale = base.id === "X_" ? parseRushScale(scale) : 1;
   rush.timeLeft = RUSH_DURATION;
+  const cfg = scaledRushConfig();
   rush.spawnAcc = cfg.interval;
   fillRushMobs(player, cfg.burst);
 }
@@ -122,6 +153,7 @@ export function stopRush() {
   rush.active = false;
   rush.timeLeft = RUSH_DURATION;
   rush.spawnAcc = 0;
+  rush.scale = 1;
 }
 
 export function takeRushReward(success) {
@@ -130,10 +162,17 @@ export function takeRushReward(success) {
   if (!success) {
     return { success: false, exp: 0, items: [], label: cfg.label };
   }
+  const n = Math.max(1, Math.floor(cfg.rewardMult || 1));
+  const items = [];
+  for (let i = 0; i < n; i++) {
+    for (const spec of cfg.rewards) {
+      items.push(createItem(spec.type, spec.rarity));
+    }
+  }
   return {
     success: true,
     exp: cfg.exp,
-    items: cfg.rewards.map((spec) => createItem(spec.type, spec.rarity)),
+    items,
     label: cfg.label
   };
 }

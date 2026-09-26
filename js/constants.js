@@ -24,7 +24,14 @@ export const PLAYER_RESPAWN_TIME = 3;
 export const PLAYER_RESPAWN_HP = 0.6;
 export const CONTACT_DPS_SCALE = 12;
 export const DAMAGE_STAT_BONUS = 0.04;
+export const RELOAD_STAT_BASE = 0.03;
 export const RELOAD_STAT_GROWTH = 0.97;
+export const RANGE_STAT_BONUS = 0.06;
+export const KNOCK_STAT_BONUS = 0.08;
+export const HEAL_STAT_BONUS = 0.08;
+export const HP_STAT_BONUS = 12;
+export const STAT_LEVEL_STEP = 10;
+export const STAT_LEVEL_BONUS = 0.01;
 export const MIN_RELOAD_TIME = 0.1;
 
 export const ITEM_RELOAD = {
@@ -74,6 +81,7 @@ export const WITCH_AOE_RADIUS = 70;
 export const WITCH_SPELL_BASE = 9;
 
 export const DROP_LIFETIME = 20;
+export const DROP_MERGE_RANGE = 48;
 export const EFFECT_LIFETIME = 0.22;
 
 export const TILE_SIZE = 50;

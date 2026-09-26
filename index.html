@@ -60,7 +60,7 @@
 
   <div id="fuse-panel">
     <div id="fuse-title">Fuse (F)</div>
-    <div id="fuse-help">Fuse 5 of the same weapon. Craft jo0MOnG from 5 X_ of one type. Craft attack is X_ x3, then 1.02 per enhance. Each enhance also shortens reload by 0.25%.</div>
+    <div id="fuse-help">Fuse 5 of the same weapon. Craft jo0MOnG from 5 X_ of one type. Craft attack is X_ x3, then 1.02 per enhance. Each enhance also shortens reload by 0.25%. 일괄 강화 uses every matching X_ at once.</div>
     <label id="enhance-confirm-label">
       <input id="rapid-enhance" type="checkbox">
       빠른 강화 (팝업 없이 연타)
@@ -126,7 +126,11 @@
   <div id="rush-modal">
     <div class="modal-card">
       <div class="modal-title">Monster Rush</div>
-      <div class="modal-body">Pick a rarity. That rarity floods the arena for 60 seconds. Drops, EXP, and dex count. Death ends the rush.</div>
+      <div class="modal-body">Pick a rarity. That rarity floods the arena for 60 seconds. Drops, EXP, and dex count. Death ends the rush. X_ can be scaled by a natural number n: monster HP x n², clear items x n.</div>
+      <label id="x-rush-scale-label">
+        X_ scale n
+        <input id="x-rush-scale" type="number" min="1" step="1" value="1">
+      </label>
       <div class="modal-actions" id="rush-choices"></div>
       <button id="rush-cancel" type="button">Cancel</button>
     </div>
@@ -154,6 +158,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=dura3"></script>
+  <script type="module" src="js/main.js?v=stack1"></script>
 </body>
 </html>

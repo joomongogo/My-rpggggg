@@ -202,6 +202,22 @@ export function enhanceJoomong(player, type) {
   });
 }
 
+export function enhanceJoomongAll(player, type) {
+  return withBusy(() => {
+    const status = enhanceStatus(player, type);
+    if (!status.ok) {
+      return status;
+    }
+    const taken = takeOwned(player, type, X_RARITY, status.have);
+    if (taken.length < 1) {
+      return { ok: false, reason: "not-enough" };
+    }
+    applyEnhanceDurability(status.item, taken.length);
+    console.log("[joomong] batch enhance", type, taken.length, status.item.enhanceCount, joomongEnhanceMult(status.item));
+    return { ok: true, item: status.item, enhanceCount: status.item.enhanceCount, used: taken.length };
+  });
+}
+
 export function joomongPreview(type, enhanceCount) {
   return createItem(type, JOOMONG_RARITY, { enhanceCount });
 }

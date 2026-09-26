@@ -326,6 +326,24 @@ body {
   margin-bottom: 10px;
 }
 
+#x-rush-scale-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #ddd;
+}
+
+#x-rush-scale {
+  width: 72px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
 #rush-choices button {
   background: rgba(0, 0, 0, 0.35);
 }
@@ -648,6 +666,17 @@ body {
   color: #fff;
   cursor: pointer;
   font-size: 12px;
+}
+
+.fuse-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.fuse-batch {
+  background: rgba(62, 230, 193, 0.18);
 }
 
 #bestiary-panel {

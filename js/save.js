@@ -1,4 +1,4 @@
-import { PLAYER_DAMAGE, SLOT_COUNT } from "./constants.js";
+import { PLAYER_DAMAGE, PLAYER_MAX_HP, PLAYER_REGEN, SLOT_COUNT } from "./constants.js";
 import { createItem } from "./items.js";
 import { inventory, replaceInventory } from "./loadout.js";
 import { JOOMONG_RARITY, RARITY_ORDER } from "./rarity.js";
@@ -79,6 +79,10 @@ export function serializeProgress(player) {
     maxExp: player.maxExp,
     hp: player.hp,
     maxHp: player.maxHp,
+    hpStat: player.hpStat || 0,
+    rangeStat: player.rangeStat || 0,
+    knockStat: player.knockStat || 0,
+    healStat: player.healStat || 0,
     damage: player.damage,
     damageStat: player.damageStat || 0,
     rangeMult: Number.isFinite(player.rangeMult) ? player.rangeMult : 1,
@@ -131,14 +135,34 @@ export function applyProgress(player) {
   player.exp = Math.max(0, finiteNumber(data.exp, player.exp));
   player.maxHp = Math.max(1, Math.floor(finiteNumber(data.maxHp, player.maxHp)));
   player.hp = Math.max(0, Math.min(player.maxHp, finiteNumber(data.hp, player.hp)));
+  if (Number.isFinite(data.hpStat)) {
+    player.hpStat = Math.max(0, Math.floor(data.hpStat));
+  } else {
+    player.hpStat = Math.max(0, Math.round((finiteNumber(data.maxHp, PLAYER_MAX_HP) - PLAYER_MAX_HP) / 12));
+  }
   if (Number.isFinite(data.damageStat)) {
     player.damageStat = Math.max(0, Math.floor(data.damageStat));
   } else {
     player.damageStat = inferGrowthCount(data.damage, PLAYER_DAMAGE, 1.08);
   }
   player.rangeMult = finiteNumber(data.rangeMult, player.rangeMult || 1);
+  if (Number.isFinite(data.rangeStat)) {
+    player.rangeStat = Math.max(0, Math.floor(data.rangeStat));
+  } else {
+    player.rangeStat = inferGrowthCount(player.rangeMult, 1, 1.06);
+  }
   player.knockbackMult = finiteNumber(data.knockbackMult, player.knockbackMult || 1);
+  if (Number.isFinite(data.knockStat)) {
+    player.knockStat = Math.max(0, Math.floor(data.knockStat));
+  } else {
+    player.knockStat = inferGrowthCount(player.knockbackMult, 1, 1.08);
+  }
   player.healRate = finiteNumber(data.healRate, player.healRate || 2);
+  if (Number.isFinite(data.healStat)) {
+    player.healStat = Math.max(0, Math.floor(data.healStat));
+  } else {
+    player.healStat = inferGrowthCount(player.healRate, PLAYER_REGEN, 1.08);
+  }
   if (Number.isFinite(data.reloadStat)) {
     player.reloadStat = Math.max(0, Math.floor(data.reloadStat));
   } else {
