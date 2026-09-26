@@ -2,7 +2,7 @@ import { EFFECT_LIFETIME, HEAD_KNOCKBACK, MIN_RELOAD_TIME } from "./constants.js
 import { canExtraHit, restoreDurability, spendDurability } from "./items.js";
 import { damageStatMultiplier, healPlayer, reloadStatMultiplier } from "./player.js";
 import { countEquippedOfType } from "./loadout.js";
-import { applyMonsterHit, applySlow, canBeHit, monsterHardness } from "./monsters.js";
+import { applyMonsterHit, applySlow, canBeHit, canTakeDamage, monsterHardness } from "./monsters.js";
 import {
   fangHealOf,
   formatCompact,
@@ -84,7 +84,7 @@ function addEffect(effect) {
 }
 
 function livingTargets(monsterList) {
-  return monsterList.filter((monster) => canBeHit(monster) || monster.undead);
+  return monsterList.filter((monster) => canBeHit(monster));
 }
 
 function distanceTo(player, monster) {
@@ -93,9 +93,6 @@ function distanceTo(player, monster) {
 
 function enemiesInRange(player, monsterList, range) {
   return livingTargets(monsterList).filter((monster) => {
-    if (!canBeHit(monster)) {
-      return false;
-    }
     return distanceTo(player, monster) < range + monster.size;
   });
 }
@@ -105,19 +102,19 @@ const MAX_EXTRA_VFX = 8;
 
 export function applyWeaponHit(item, player, target, onResolved, isExtraHit = false) {
   if (!item || !canBeHit(target)) {
-    return { dealt: 0, extra: false, extraHits: 0 };
+    return { dealt: 0, extra: false, extraHits: 0, hit: false };
   }
 
-  const amount = weaponHitDamage(item, player);
+  const amount = canTakeDamage(target) ? weaponHitDamage(item, player) : 0;
   const dealt = applyMonsterHit(target, amount, player, onResolved);
   if (dealt <= 0 || isExtraHit) {
-    return { dealt, extra: false, extraHits: 0 };
+    return { dealt, extra: false, extraHits: 0, hit: true };
   }
 
   const cost = monsterHardness(target);
   let extraHits = 0;
   let remaining = spendDurability(item, cost);
-  while (remaining > 0 && canBeHit(target) && extraHits < MAX_CHAIN_HITS) {
+  while (remaining > 0 && canTakeDamage(target) && extraHits < MAX_CHAIN_HITS) {
     const extra = applyWeaponHit(item, player, target, onResolved, true);
     if (extra.dealt <= 0) {
       break;
@@ -125,7 +122,7 @@ export function applyWeaponHit(item, player, target, onResolved, isExtraHit = fa
     extraHits += 1;
     remaining = spendDurability(item, cost);
   }
-  return { dealt, extra: extraHits > 0, extraHits };
+  return { dealt, extra: extraHits > 0, extraHits, hit: true };
 }
 
 function addExtraHitEffects(target, extraHits) {
@@ -141,9 +138,11 @@ function addExtraHitEffects(target, extraHits) {
 }
 
 function closest(player, targets) {
+  const living = targets.filter((target) => canTakeDamage(target));
+  const pool = living.length > 0 ? living : targets;
   let best = null;
   let bestDist = Infinity;
-  for (const target of targets) {
+  for (const target of pool) {
     const dist = distanceTo(player, target);
     if (dist < bestDist) {
       best = target;
@@ -154,52 +153,59 @@ function closest(player, targets) {
 }
 
 function fireFang(item, player, target, onResolved) {
-  const { dealt, extraHits } = applyWeaponHit(item, player, target, onResolved, false);
+  const { dealt, extraHits, hit } = applyWeaponHit(item, player, target, onResolved, false);
+  if (!hit) {
+    return;
+  }
   if (dealt > 0) {
     healPlayer(player, fangHealOf(item));
-    addEffect({
-      type: "fang",
-      x: target.x,
-      y: target.y,
-      radius: 16
-    });
-    addExtraHitEffects(target, extraHits);
   }
+  addEffect({
+    type: "fang",
+    x: target.x,
+    y: target.y,
+    radius: 16
+  });
+  addExtraHitEffects(target, extraHits);
 }
 
 function fireMucus(item, player, target, onResolved) {
-  const { dealt, extraHits } = applyWeaponHit(item, player, target, onResolved, false);
+  const { dealt, extraHits, hit } = applyWeaponHit(item, player, target, onResolved, false);
+  if (!hit) {
+    return;
+  }
   if (dealt > 0) {
     applySlow(target, item.slow, item.slowDuration);
-    addEffect({
-      type: "mucus",
-      x: target.x,
-      y: target.y,
-      radius: 18
-    });
-    addExtraHitEffects(target, extraHits);
   }
+  addEffect({
+    type: "mucus",
+    x: target.x,
+    y: target.y,
+    radius: 18
+  });
+  addExtraHitEffects(target, extraHits);
 }
 
 function fireBolt(item, target, onResolved, player) {
-  const { dealt, extraHits } = applyWeaponHit(item, player, target, onResolved, false);
-  if (dealt > 0) {
-    if (item.type === "head") {
-      knockbackMonster(
-        target,
-        player.x,
-        player.y,
-        (item.knockback || HEAD_KNOCKBACK) * (player.knockbackMult || 1)
-      );
-    }
-    addEffect({
-      type: item.type,
-      x: target.x,
-      y: target.y,
-      radius: item.type === "boulder" ? 22 : 12
-    });
-    addExtraHitEffects(target, extraHits);
+  const { dealt, extraHits, hit } = applyWeaponHit(item, player, target, onResolved, false);
+  if (!hit) {
+    return;
   }
+  if (dealt > 0 && item.type === "head") {
+    knockbackMonster(
+      target,
+      player.x,
+      player.y,
+      (item.knockback || HEAD_KNOCKBACK) * (player.knockbackMult || 1)
+    );
+  }
+  addEffect({
+    type: item.type,
+    x: target.x,
+    y: target.y,
+    radius: item.type === "boulder" ? 22 : 12
+  });
+  addExtraHitEffects(target, extraHits);
 }
 
 function firePotion(item, player, targets, onResolved) {

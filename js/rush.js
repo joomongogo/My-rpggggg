@@ -10,15 +10,15 @@ const REWARD_TYPES = ["mucus", "dart", "fang", "stick", "head", "potion", "bould
 
 function swarmForIndex(index) {
   if (index <= 1) {
-    return { maxAlive: 22, burst: 8, perTick: 1, interval: 1 };
+    return { maxAlive: 22, burst: 1, swarmCap: 140 };
   }
   if (index <= 3) {
-    return { maxAlive: 18, burst: 7, perTick: 1, interval: 1 };
+    return { maxAlive: 18, burst: 1, swarmCap: 110 };
   }
   if (index <= 5) {
-    return { maxAlive: 14, burst: 6, perTick: 1, interval: 1 };
+    return { maxAlive: 14, burst: 1, swarmCap: 90 };
   }
-  return { maxAlive: 10, burst: 5, perTick: 1, interval: 1 };
+  return { maxAlive: 10, burst: 1, swarmCap: 70 };
 }
 
 function makeDifficulty(rarity, index) {
@@ -30,9 +30,8 @@ function makeDifficulty(rarity, index) {
     hpMult: 1,
     atkMult: 1,
     maxAlive: swarm.maxAlive,
-    interval: swarm.interval,
+    swarmCap: swarm.swarmCap,
     burst: swarm.burst,
-    perTick: swarm.perTick,
     types: RUSH_TYPES,
     rarities: [rarity],
     exp: Math.round(80 * 1.65 ** index),
@@ -107,10 +106,38 @@ function spawnRushMob(player, cfg) {
   });
 }
 
+function countRushAlive() {
+  let total = 0;
+  for (const monster of monsters) {
+    if (monster.ephemeral && monster.alive && !monster.finished) {
+      total += 1;
+    }
+  }
+  return total;
+}
+
+function rushProgress() {
+  return 1 - Math.max(0, rush.timeLeft) / RUSH_DURATION;
+}
+
+function rushSpawnPace() {
+  const t = Math.min(1, Math.max(0, rushProgress()));
+  const cfg = getRushDifficulty();
+  const ramp = t ** 1.2;
+  const late = Math.max(0, (t - 0.62) / 0.38) ** 2.2;
+  return {
+    interval: Math.max(0.04, 1 - ramp * 0.7 - late * 0.5),
+    perTick: 1 + Math.floor(ramp * 2.2) + Math.floor(late * 10),
+    maxAlive: Math.round(cfg.maxAlive + ramp * cfg.maxAlive + late * cfg.swarmCap)
+  };
+}
+
 function fillRushMobs(player, count) {
   const cfg = getRushDifficulty();
+  const room = Math.max(0, rushSpawnPace().maxAlive - countRushAlive());
+  const want = Math.min(Math.max(0, Math.floor(count)), room);
   let spawned = 0;
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < want; i++) {
     if (spawnRushMob(player, cfg)) {
       spawned += 1;
     }
@@ -145,7 +172,8 @@ export function beginRush(player, difficulty, scale = 1) {
   rush.scale = base.id === "X_" ? parseRushScale(scale) : 1;
   rush.timeLeft = RUSH_DURATION;
   const cfg = scaledRushConfig();
-  rush.spawnAcc = cfg.interval;
+  const pace = rushSpawnPace();
+  rush.spawnAcc = pace.interval;
   fillRushMobs(player, cfg.burst);
 }
 
@@ -189,10 +217,10 @@ export function updateRush(player, dt) {
   rush.timeLeft -= dt;
   rush.spawnAcc -= dt;
 
-  const cfg = getRushDifficulty();
+  const pace = rushSpawnPace();
   if (rush.spawnAcc <= 0) {
-    const spawned = fillRushMobs(player, cfg.perTick);
-    rush.spawnAcc = spawned > 0 ? cfg.interval : 0.45;
+    const spawned = fillRushMobs(player, pace.perTick);
+    rush.spawnAcc = spawned > 0 ? pace.interval : Math.min(0.45, pace.interval);
   }
 
   if (rush.timeLeft <= 0) {
